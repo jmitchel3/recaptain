@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Recaptain",
   "version": "0.1.0",
-  "description": "Record a web session (interactions, network, mic audio, redacted screenshots) into a shareable bundle.",
+  "description": "Record a browser session (clicks, screenshots, console, network, voice) into one shareable bundle. 100% free, local, and private.",
   "permissions": [
     "activeTab",
     "tabs",

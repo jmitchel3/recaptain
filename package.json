@@ -1,6 +1,6 @@
 {
   "name": "recaptain",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser extension that records web sessions (semantic interaction events with Playwright-style locators, network metadata, mic audio, and redacted screenshots) into a shareable bundle.",
   "private": true,
   "type": "module",
