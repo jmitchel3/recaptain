@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 1280px; height: 800px; padding: 72px 80px; display: flex; flex-direction: column; }
+  .head { max-width: 60%; }
+  .head h2 { font-size: 46px; line-height: 1.08; letter-spacing: -0.03em; font-weight: 760; }
+  .head h2 .hl { color: var(--rec-bright); }
+  .head p { margin-top: 16px; font-size: 20px; color: var(--muted); max-width: 34ch; }
+  .grid { margin-top: 40px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 26px; flex: 1; min-height: 0; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
+  .chip { display: flex; align-items: center; gap: 13px; padding: 18px 18px; }
+  .chip .ic { width: 42px; height: 42px; border-radius: 11px; background: var(--rec-soft); display: grid; place-items: center; font-size: 21px; flex: none; }
+  .chip .t { font-size: 18px; font-weight: 680; letter-spacing: -0.01em; }
+  .chip .d { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+  .stream { display: flex; flex-direction: column; overflow: hidden; }
+  .stream .win-bar .name { color: var(--fg-dim); }
+  .rows { padding: 8px 6px; font-family: var(--mono); font-size: 13.5px; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-radius: 8px; }
+  .row + .row { margin-top: 2px; }
+  .row .k { flex: none; width: 78px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--rec-bright); font-weight: 700; }
+  .row .v { color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .v .dim { color: var(--muted); }
+  .row.alt { background: rgba(255,255,255,0.022); }
+  .row .t { margin-left: auto; color: #5f5f68; font-size: 11.5px; flex: none; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="head">
+    <h2>Everything that happened, <span class="hl">not just the pixels.</span></h2>
+    <p>Semantic events with Playwright-ready locators, so a human or an agent can replay the flow.</p>
+  </div>
+  <div class="grid">
+    <div class="chips">
+      <div class="chip card"><div class="ic">🖱️</div><div><div class="t">Clicks &amp; input</div><div class="d">Every interaction, located</div></div></div>
+      <div class="chip card"><div class="ic">📸</div><div><div class="t">Screenshots</div><div class="d">Periodic + on every action</div></div></div>
+      <div class="chip card"><div class="ic">🖥️</div><div><div class="t">Console</div><div class="d">Logs, warnings, errors</div></div></div>
+      <div class="chip card"><div class="ic">🌐</div><div><div class="t">Network</div><div class="d">Every fetch &amp; XHR</div></div></div>
+      <div class="chip card"><div class="ic">🎙️</div><div><div class="t">Voice narration</div><div class="d">Talk through the flow</div></div></div>
+      <div class="chip card"><div class="ic">✅</div><div><div class="t">Assertions</div><div class="d">⌘⇧A on any element</div></div></div>
+    </div>
+    <div class="stream win">
+      <div class="win-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="name">events.json</span></div>
+      <div class="rows">
+        <div class="row alt"><span class="k">click</span><span class="v">getByRole('button', { name: <span class="dim">'Export' </span>})</span><span class="t">0:04.1</span></div>
+        <div class="row"><span class="k">input</span><span class="v">getByLabel('Amount') <span class="dim">· masked</span></span><span class="t">0:07.8</span></div>
+        <div class="row alt"><span class="k">network</span><span class="v">POST /api/expenses <span class="dim">→ 201 · 142ms</span></span><span class="t">0:08.0</span></div>
+        <div class="row"><span class="k">console</span><span class="v"><span class="dim">warn</span> "retrying sync (2/3)"</span><span class="t">0:08.3</span></div>
+        <div class="row alt"><span class="k">assertion</span><span class="v">toHaveText('Synced')</span><span class="t">0:11.5</span></div>
+        <div class="row"><span class="k">navigation</span><span class="v">/expenses/9a2f <span class="dim">· screenshot 0007</span></span><span class="t">0:12.2</span></div>
+        <div class="row alt"><span class="k">note</span><span class="v">🎙️ "this is where the total is wrong"</span><span class="t">0:14.9</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

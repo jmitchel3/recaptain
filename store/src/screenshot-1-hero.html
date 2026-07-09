@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 1280px; height: 800px; padding: 92px 96px; display: flex; flex-direction: column; justify-content: center; }
+  .brand-lg { font-size: 40px; }
+  .brand-lg .rec-dot { width: 30px; height: 30px; }
+  h1 {
+    margin-top: 34px;
+    font-size: 72px;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    font-weight: 780;
+    max-width: 14ch;
+  }
+  h1 .hl { color: var(--rec-bright); }
+  .sub {
+    margin-top: 26px;
+    font-size: 23px;
+    line-height: 1.5;
+    color: var(--fg-dim);
+    max-width: 38ch;
+    font-weight: 450;
+  }
+  .pills { margin-top: 46px; }
+  .pill { font-size: 17px; padding: 12px 20px; }
+  .glyph {
+    position: absolute; right: 96px; top: 50%; transform: translateY(-50%);
+    width: 288px; height: 288px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 36%, var(--rec-bright), var(--rec) 60%, #8f1913);
+    box-shadow: 0 0 0 24px rgba(229,52,43,0.06), 0 0 0 50px rgba(229,52,43,0.035), 0 40px 120px -20px rgba(229,52,43,0.5);
+  }
+  .glyph-ring {
+    position: absolute; right: 72px; top: 50%; transform: translateY(-50%);
+    width: 336px; height: 336px; border-radius: 50%; border: 1px solid rgba(229,52,43,0.3);
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glyph-ring"></div>
+  <div class="glyph"></div>
+  <div class="brand brand-lg"><span class="rec-dot"></span><span class="wm"><span class="rec">Rec</span>aptain</span></div>
+  <h1>Record it once. <span class="hl">Hand off the whole story.</span></h1>
+  <div class="sub">Clicks, screenshots, console, network, and your voice, captured into one shareable bundle.</div>
+  <div class="pills">
+    <span class="pill"><span class="tick">✓</span> 100% Free</span>
+    <span class="pill"><span class="tick">✓</span> 100% Local</span>
+    <span class="pill"><span class="tick">✓</span> 100% Private</span>
+  </div>
+</div>
+</body>
+</html>

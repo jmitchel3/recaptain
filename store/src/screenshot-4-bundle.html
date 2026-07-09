@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 1280px; height: 800px; padding: 72px 80px; display: grid; grid-template-columns: 0.92fr 1.08fr; gap: 56px; align-items: center; }
+  .left h2 { font-size: 48px; line-height: 1.07; letter-spacing: -0.03em; font-weight: 760; }
+  .left h2 .hl { color: var(--rec-bright); }
+  .left p { margin-top: 20px; font-size: 20px; line-height: 1.55; color: var(--fg-dim); max-width: 30ch; }
+  .pills { margin-top: 30px; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .pill { font-size: 15.5px; }
+  .tree { padding: 22px 24px; font-family: var(--mono); font-size: 15px; line-height: 2.0; }
+  .tree .zip { color: var(--fg); font-weight: 700; }
+  .tree .b { color: #45454d; }
+  .tree .f { color: var(--fg-dim); }
+  .tree .dir { color: var(--rec-bright); font-weight: 600; }
+  .tree .c { color: var(--muted); font-size: 12.5px; }
+  .tree .badge { display:inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 6px; font-size: 11px; background: var(--rec-soft); color: #ff8a82; font-weight: 650; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="left">
+    <div class="eyebrow" style="margin-bottom:18px;">One portable artifact</div>
+    <h2>A single <span class="hl">.zip</span> you can hand to anyone.</h2>
+    <p>Double-click to replay it in the browser. No server, no account, no backend.</p>
+    <div class="pills">
+      <span class="pill"><span class="tick">✓</span> Self-contained viewer</span>
+      <span class="pill"><span class="tick">✓</span> LLM-ready RECAP.md</span>
+      <span class="pill"><span class="tick">✓</span> Runnable Playwright spec</span>
+    </div>
+  </div>
+  <div class="tree win">
+    <div class="win-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="name">2026-07-09__airbase-expense-sync.zip</span></div>
+    <div style="padding:22px 24px;">
+    <div class="zip">📦 airbase-expense-sync.zip</div>
+    <div><span class="b">├─</span> <span class="f">manifest.json</span> <span class="c">id · duration · privacy</span></div>
+    <div><span class="b">├─</span> <span class="f">index.html</span> <span class="badge">double-click to replay</span></div>
+    <div><span class="b">├─</span> <span class="f">RECAP.md</span> <span class="c">dense digest for an LLM</span></div>
+    <div><span class="b">├─</span> <span class="f">replay.spec.ts</span> <span class="c">runnable Playwright</span></div>
+    <div><span class="b">├─</span> <span class="f">events.json</span> <span class="c">semantic event stream</span></div>
+    <div><span class="b">├─</span> <span class="f">console.json</span> · <span class="f">network</span> · <span class="f">pages.json</span></div>
+    <div><span class="b">├─</span> <span class="f">audio.webm</span> <span class="c">voice narration</span></div>
+    <div><span class="b">└─</span> <span class="dir">screenshots/</span> <span class="c">redacted · index.json</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

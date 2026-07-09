@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recaptain Recording</title>
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<!--
+  Recaptain bundle viewer.
+
+  This file is copied into every recording bundle as `index.html`. Double-click
+  it after unzipping to inspect the recording. No server required — it runs from
+  file:// with no fetch calls.
+
+  ──────────────────────────────────────────────────────────────────────────
+  PLACEHOLDER CONTRACT — for the extension's bundle-assembly step.
+  ──────────────────────────────────────────────────────────────────────────
+  At bundle-assembly time (src/background.js :: assembleBundle), replace each
+  of the five sentinels below with the JSON string of the corresponding file.
+  Use `JSON.stringify(data).replace(/</g, '<')` to prevent any embedded
+  `</script>` sequences from breaking the inline JSON script tag.
+
+  Sentinels (must match exactly):
+    __MANIFEST_JSON__   → contents of manifest.json         (object)
+    __EVENTS_JSON__     → contents of events.json           (array)
+    __CONSOLE_JSON__    → contents of console.json          (array)
+    __TABS_JSON__       → contents of tabs.json             (array)
+    __SHOTS_JSON__      → contents of screenshots/index.json (array)
+
+  Binary assets (PNG/JPG screenshots, audio.webm) load via normal <img>/<audio>
+  tags using the relative paths already recorded in screenshots/index.json and
+  manifest.audio.file — those work fine from file://.
+
+  If a sentinel is left unreplaced (e.g. the viewer is loaded standalone for
+  development), viewer.js falls back to an empty default and renders a notice.
+-->
+<body>
+  <!-- Inlined bundle data. Replaced by assembleBundle. -->
+  <script type="application/json" id="manifest-data">__MANIFEST_JSON__</script>
+  <script type="application/json" id="events-data">__EVENTS_JSON__</script>
+  <script type="application/json" id="console-data">__CONSOLE_JSON__</script>
+  <script type="application/json" id="tabs-data">__TABS_JSON__</script>
+  <script type="application/json" id="shots-data">__SHOTS_JSON__</script>
+
+  <header class="top">
+    <div class="top-main">
+      <div class="label-block">
+        <div class="label" id="bundle-label">Recording</div>
+        <div class="description" id="bundle-description"></div>
+      </div>
+      <div class="meta-block" id="bundle-meta"></div>
+    </div>
+    <div class="hosts" id="bundle-hosts"></div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="activity" role="tab">Activity</button>
+    <button class="tab" data-tab="console" role="tab">Console</button>
+    <button class="tab" data-tab="network" role="tab">Network</button>
+    <button class="tab" data-tab="screenshots" role="tab">Screenshots</button>
+    <button class="tab" data-tab="tabs" role="tab">Tabs</button>
+    <button class="tab" data-tab="manifest" role="tab">Manifest</button>
+  </nav>
+
+  <main class="main">
+    <!-- Activity tab: split into feed (left) + focus pane (right) -->
+    <section class="pane active" id="pane-activity" role="tabpanel">
+      <div class="split">
+        <div class="feed-col">
+          <div class="feed-head">
+            <input id="filter-text" class="input" placeholder="filter text…  (press / to focus)" autocomplete="off" />
+            <select id="filter-type" class="select" aria-label="Type filter">
+              <option value="">all kinds</option>
+            </select>
+            <label class="check">
+              <input id="only-interactions" type="checkbox" />
+              <span>only interactions</span>
+            </label>
+            <span class="feed-count muted" id="feed-count">0 / 0</span>
+          </div>
+          <div class="feed-wrap" id="feed-wrap">
+            <ul class="feed" id="feed"></ul>
+            <div class="empty" id="feed-empty">No events match the current filter.</div>
+          </div>
+          <div class="feed-hint muted">
+            <span>j/k navigate</span>
+            <span class="sep">·</span>
+            <span>Enter expand</span>
+            <span class="sep">·</span>
+            <span>/ filter</span>
+          </div>
+        </div>
+        <div class="focus-col" id="focus-col">
+          <div class="focus-empty muted">Select an event to see its details.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-console" role="tabpanel">
+      <div class="pane-head">
+        <input id="console-filter" class="input" placeholder="filter console…" autocomplete="off" />
+        <select id="console-level" class="select" aria-label="Level filter">
+          <option value="">all levels</option>
+          <option value="log">log</option>
+          <option value="info">info</option>
+          <option value="warn">warn</option>
+          <option value="error">error</option>
+          <option value="debug">debug</option>
+          <option value="trace">trace</option>
+        </select>
+        <span class="muted" id="console-count">0 entries</span>
+      </div>
+      <div class="scroll-body">
+        <ul class="console-list" id="console-list"></ul>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-network" role="tabpanel">
+      <div class="pane-head">
+        <input id="network-filter" class="input" placeholder="filter url…" autocomplete="off" />
+        <span class="muted" id="network-count">0 requests</span>
+      </div>
+      <div class="scroll-body">
+        <table class="network-table" id="network-table">
+          <thead>
+            <tr>
+              <th class="col-time">time</th>
+              <th class="col-method">method</th>
+              <th class="col-url">url</th>
+              <th class="col-status">status</th>
+              <th class="col-duration">dur</th>
+              <th class="col-size">size</th>
+            </tr>
+          </thead>
+          <tbody id="network-body"></tbody>
+        </table>
+        <div class="empty-inline muted" id="network-empty">
+          No network events in this bundle. The current recorder capture model
+          (<code>recaptain-recording/2.1</code>) does not emit <code>kind: "network"</code>;
+          this panel will populate automatically once network capture ships.
+        </div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-screenshots" role="tabpanel">
+      <div class="pane-head">
+        <span class="muted" id="shots-count">0 screenshots</span>
+      </div>
+      <div class="scroll-body">
+        <div class="shots-grid" id="shots-grid"></div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-tabs" role="tabpanel">
+      <div class="pane-head">
+        <span class="muted" id="tabs-count">0 tabs</span>
+      </div>
+      <div class="scroll-body">
+        <div class="tabs-timeline" id="tabs-timeline"></div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-manifest" role="tabpanel">
+      <div class="scroll-body">
+        <pre class="json" id="manifest-view"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot" id="audio-foot">
+    <audio id="audio" controls preload="metadata"></audio>
+    <button id="align-audio" class="btn" type="button" title="Seek audio to the currently selected event">Align to current event</button>
+    <span class="muted audio-hint" id="audio-hint">no audio</span>
+  </footer>
+
+  <!-- Lightbox overlay for enlarged screenshots -->
+  <div class="lightbox" id="lightbox" hidden>
+    <div class="lightbox-inner">
+      <img id="lightbox-img" alt="">
+      <button class="lightbox-close btn" id="lightbox-close" type="button">close</button>
+    </div>
+  </div>
+
+  <!-- Classic (non-module) script — ES modules are blocked on file:// in Chrome. -->
+  <script src="viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+releases/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+.agent-notes/

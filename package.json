@@ -1,0 +1,31 @@
+{
+  "name": "recaptain",
+  "version": "0.1.0",
+  "description": "Browser extension that records web sessions — semantic interaction events with Playwright-style locators, network metadata, mic audio, and redacted screenshots — into a shareable bundle.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "package": "npm run build && node scripts/package.mjs",
+    "clean": "rm -rf dist releases",
+    "lint": "eslint src tests build.mjs",
+    "test": "node --test 'tests/unit/**/*.test.js'",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 'tests/unit/**/*.test.js'",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
+    "esbuild": "^0.24.0",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 440px; height: 280px; padding: 30px 32px; display: flex; flex-direction: column; justify-content: space-between; }
+  .brand { font-size: 25px; }
+  .brand .rec-dot { width: 19px; height: 19px; }
+  .tag { font-size: 27px; font-weight: 760; line-height: 1.12; letter-spacing: -0.025em; }
+  .tag .hl { color: var(--rec-bright); }
+  .pills { gap: 7px; }
+  .pill { font-size: 11.5px; padding: 6px 11px; }
+  .glow { position: absolute; right: -40px; top: -40px; width: 190px; height: 190px; border-radius: 50%; background: radial-gradient(circle, rgba(229,52,43,0.32), transparent 68%); }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow"></div>
+  <div class="brand"><span class="rec-dot"></span><span class="wm"><span class="rec">Rec</span>aptain</span></div>
+  <div class="tag">Record. Redact.<br><span class="hl">Hand it off.</span></div>
+  <div class="pills">
+    <span class="pill"><span class="tick">✓</span> Free</span>
+    <span class="pill"><span class="tick">✓</span> Local</span>
+    <span class="pill"><span class="tick">✓</span> Private</span>
+  </div>
+</div>
+</body>
+</html>

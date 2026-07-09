@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 1280px; height: 800px; padding: 72px 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .left h2 { font-size: 48px; line-height: 1.07; letter-spacing: -0.03em; font-weight: 760; }
+  .left h2 .hl { color: var(--rec-bright); }
+  .left p { margin-top: 20px; font-size: 20px; line-height: 1.55; color: var(--fg-dim); max-width: 32ch; }
+  .list { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .li { display: flex; gap: 13px; align-items: flex-start; font-size: 16.5px; color: var(--fg-dim); }
+  .li .b { color: var(--rec-bright); font-weight: 800; flex: none; }
+  .li b { color: var(--fg); font-weight: 680; }
+  /* mock redacted screenshot */
+  .shot { padding: 0; }
+  .shot .win-bar .name { color: var(--muted); }
+  .shot-body { padding: 26px 26px 30px; }
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 7px; letter-spacing: 0.01em; }
+  .input { height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--ink); display: flex; align-items: center; padding: 0 14px; font-size: 15px; color: var(--fg); }
+  .redact { position: relative; background: #000; border-color: #000; color: transparent; overflow: hidden; }
+  .redact::after { content: "REDACTED"; position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; letter-spacing: 0.28em; color: #4a4a52; }
+  .row2 { display: flex; gap: 14px; }
+  .row2 .field { flex: 1; }
+  .tag { display: inline-flex; align-items: center; gap: 7px; margin-top: 4px; padding: 7px 12px; border-radius: 999px; background: var(--rec-soft); border: 1px solid rgba(229,52,43,0.28); font-size: 12.5px; font-weight: 650; color: #ff8a82; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="left">
+    <div class="eyebrow" style="margin-bottom:18px;">Redacted by default</div>
+    <h2>Private things <span class="hl">never leave the glass.</span></h2>
+    <p>Sensitive inputs are dropped and painted over before a single byte is encoded, on your machine.</p>
+    <div class="list">
+      <div class="li"><span class="b">→</span><div><b>Passwords, emails, tokens</b> masked automatically</div></div>
+      <div class="li"><span class="b">→</span><div><b>Screenshots redacted</b> — black or blur, your call</div></div>
+      <div class="li"><span class="b">→</span><div><b>High-entropy URL params</b> scrubbed from the log</div></div>
+      <div class="li"><span class="b">→</span><div>Honors <b>LogRocket, FullStory, PostHog</b> opt-out attrs</div></div>
+    </div>
+  </div>
+  <div class="shot win">
+    <div class="win-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="name">screenshots/0007.png</span></div>
+    <div class="shot-body">
+      <div class="field"><label>Cardholder name</label><div class="input">Jordan Vega</div></div>
+      <div class="field"><label>Card number</label><div class="input redact"></div></div>
+      <div class="row2">
+        <div class="field"><label>Expiry</label><div class="input redact"></div></div>
+        <div class="field"><label>CVV</label><div class="input redact"></div></div>
+      </div>
+      <div class="field"><label>Billing email</label><div class="input redact"></div></div>
+      <span class="tag">● redaction_mode: black</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
