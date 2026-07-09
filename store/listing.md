@@ -19,7 +19,7 @@ Optional longer title if a descriptive one is wanted:
 (129 characters.)
 
 ### Category
-**Developer Tools** (primary). Fallback: Productivity.
+**Productivity → Tools** (broadest accurate fit; keeps the audience wide rather than dev-only). Developer Tools is a narrower alternative if you ever want to target that shelf specifically.
 
 ### Language
 English (United States)
@@ -28,48 +28,59 @@ English (United States)
 
 > **Record it once. Hand off the whole story.**
 >
-> Recaptain turns a browser session into a single, shareable bundle: clicks,
-> screenshots, console output, network activity, and your own voice narration,
-> all captured together so anyone (a teammate, a QA engineer, or an AI agent) can
-> understand exactly what happened.
+> Something broke, or you need to show someone exactly how a task is done.
+> Recaptain records your browser session (every click, screenshot, and anything
+> you say out loud) into one file you can hand to anyone. No more "it works on my
+> screen" or writing out ten numbered steps from memory.
 >
-> Perfect for documenting an automation, filing a bug that actually reproduces,
-> or capturing a workflow you want to hand off.
+> Just click Start, do the thing, and click Stop. Talk through it with your voice
+> if you like. You get back a single file that plays your session back like a
+> recording, so the other person sees precisely what happened.
+>
+> **Great for anyone who needs to show, not tell:**
+> - Reporting a bug that actually reproduces
+> - Documenting how a workflow or automation really works
+> - Handing a process off to a teammate, a new hire, or a client
+> - Support and success teams capturing exactly what a user hit
+> - Product and QA teams turning a session into a repeatable test
+>
+> No account, no setup, no learning curve.
 >
 > **100% Free. 100% Local. 100% Private.**
-> Recaptain has no server, no account, and no backend. Nothing you record ever
-> leaves your computer. There is no analytics, no telemetry, and no remote code.
+> Recaptain has no server and no backend. Nothing you record ever leaves your
+> computer. There is no analytics, no telemetry, and no remote code. Your
+> recording goes straight to your own Downloads folder and nowhere else.
 >
 > ---
 >
 > **What it captures**
-> - Clicks, typing, navigation, and scrolling as clean semantic events, each with
->   Playwright-ready locator suggestions.
-> - Screenshots of the active tab, taken periodically and on every meaningful action.
-> - Console logs, warnings, and uncaught errors.
-> - Network requests (URL, method, status, timing) for the page's own traffic.
-> - Microphone narration, so you can talk through the flow as you record.
-> - Assertions: press Cmd/Ctrl+Shift+A to attach a check to any element on the page.
+> - Every click, keystroke, navigation, and scroll, as a clean step-by-step trail.
+> - Screenshots of the tab, taken automatically as you go.
+> - Your voice narration, so you can explain things as they happen.
+> - Console messages and errors from the page.
+> - Network activity (which requests the page made, and how they responded).
+> - Checkpoints you add yourself: press Cmd/Ctrl+Shift+A to mark that something
+>   should be true on the page.
 >
 > **Private by default**
-> - Passwords, emails, and other sensitive inputs are masked automatically. The
->   raw value is dropped; only its length is kept.
-> - Screenshots are redacted before they are ever encoded (solid black or blur,
->   your choice), including elements that use LogRocket, FullStory, PostHog, and
->   other recognized opt-out attributes.
-> - High-entropy URL parameters are scrubbed from the log.
+> - Passwords, emails, and other sensitive fields are hidden automatically. The
+>   actual value is never recorded.
+> - Screenshots are redacted before the image is ever saved (blacked out or
+>   blurred, your choice), and Recaptain honors the opt-out markers used by tools
+>   like LogRocket, FullStory, and PostHog.
+> - Sensitive bits of web addresses are scrubbed out of the log.
 >
-> **One portable artifact**
-> Stop recording and you get a single .zip bundle you can send to anyone:
-> - A self-contained viewer. Double-click to replay the session in your browser,
->   no server required.
-> - A dense, LLM-ready RECAP.md digest of the whole session.
-> - A runnable replay.spec.ts Playwright test built from the same stable locators.
-> - The raw event, console, network, and screenshot data as clean JSON.
+> **One file you can share with anyone**
+> Stop recording and you get a single .zip. Double-click the viewer inside it to
+> replay the whole session in your browser. Nothing to install, no server, works
+> offline.
 >
-> **Built for handoff**
-> Every recording is already a test and already a runbook. Feed the bundle to an
-> AI agent, open it in the viewer, or run the Playwright spec as-is.
+> **For the technical folks (optional bonus)**
+> The same recording also includes machine-readable output, so it is ready for
+> automation without any extra work:
+> - A dense, LLM-ready RECAP.md digest you can feed straight to an AI agent.
+> - A runnable Playwright test (replay.spec.ts) built from stable locators.
+> - The raw events, console, network, and screenshots as clean JSON.
 >
 > Free and open source under the MIT license.
 
