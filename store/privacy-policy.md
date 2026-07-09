@@ -55,4 +55,5 @@ request or erase.
 
 ## Contact
 
-Questions about this policy can be sent to j@teamcfe.com.
+Questions about this policy can be raised as an issue on the project's GitHub
+repository: https://github.com/jmitchel3/recaptain/issues
