@@ -1,4 +1,4 @@
-# Chrome Web Store listing — Recaptain
+# Chrome Web Store listing - Recaptain
 
 Everything below maps to a field in the Chrome Web Store developer dashboard.
 Copy/paste ready. No em-dashes in the prose per house style.
@@ -11,7 +11,7 @@ Copy/paste ready. No em-dashes in the prose per house style.
 `Recaptain` (matches the installed extension name)
 
 Optional longer title if a descriptive one is wanted:
-`Recaptain — Record & Share Browser Sessions` (69 chars, within the 75 limit)
+`Recaptain - Record & Share Browser Sessions` (69 chars, within the 75 limit)
 
 ### Summary / short description (max 132 chars)
 > Record a browser session (clicks, screenshots, console, network, voice) into one shareable bundle. 100% free, local, and private.
@@ -26,18 +26,21 @@ English (United States)
 
 ### Detailed description
 
-> **Record it once. Hand off the whole story.**
+(Plain text on the store; no markdown bold/italics render there.)
+
+> Screen recording doesn't capture what's going on in the browser. Recaptain does.
 >
-> Something broke, or you need to show someone exactly how a task is done.
-> Recaptain records your browser session (every click, screenshot, and anything
-> you say out loud) into one file you can hand to anyone. No more "it works on my
-> screen" or writing out ten numbered steps from memory.
+> Record a browser session (clicks, page changes, form submissions, screenshots,
+> console, network) into one shareable bundle. Record narration as it happens.
+> 100% free, local, and private.
 >
-> Just click Start, do the thing, and click Stop. Talk through it with your voice
-> if you like. You get back a single file that plays your session back like a
-> recording, so the other person sees precisely what happened.
+> Open Recaptain, click Start Recording, do the thing, and click Stop. Talk
+> through it with your voice if you like. You get back a single file that plays
+> your session back like a recording, so the other person sees precisely what
+> happened.
 >
-> **Great for anyone who needs to show, not tell:**
+> Great for anyone who needs to show and tell:
+> - Showing an Agent or LLM exactly how it was done
 > - Reporting a bug that actually reproduces
 > - Documenting how a workflow or automation really works
 > - Handing a process off to a teammate, a new hire, or a client
@@ -46,43 +49,14 @@ English (United States)
 >
 > No account, no setup, no learning curve.
 >
-> **100% Free. 100% Local. 100% Private.**
+> 100% Free. 100% Local. 100% Private.
+>
 > Recaptain has no server and no backend. Nothing you record ever leaves your
-> computer. There is no analytics, no telemetry, and no remote code. Your
+> computer. There are no analytics, no telemetry, and no remote code. Your
 > recording goes straight to your own Downloads folder and nowhere else.
 >
-> ---
->
-> **What it captures**
-> - Every click, keystroke, navigation, and scroll, as a clean step-by-step trail.
-> - Screenshots of the tab, taken automatically as you go.
-> - Your voice narration, so you can explain things as they happen.
-> - Console messages and errors from the page.
-> - Network activity (which requests the page made, and how they responded).
-> - Checkpoints you add yourself: press Cmd/Ctrl+Shift+A to mark that something
->   should be true on the page.
->
-> **Private by default**
-> - Passwords, emails, and other sensitive fields are hidden automatically. The
->   actual value is never recorded.
-> - Screenshots are redacted before the image is ever saved (blacked out or
->   blurred, your choice), and Recaptain honors the opt-out markers used by tools
->   like LogRocket, FullStory, and PostHog.
-> - Sensitive bits of web addresses are scrubbed out of the log.
->
-> **One file you can share with anyone**
-> Stop recording and you get a single .zip. Double-click the viewer inside it to
-> replay the whole session in your browser. Nothing to install, no server, works
-> offline.
->
-> **For the technical folks (optional bonus)**
-> The same recording also includes machine-readable output, so it is ready for
-> automation without any extra work:
-> - A dense, LLM-ready RECAP.md digest you can feed straight to an AI agent.
-> - A runnable Playwright test (replay.spec.ts) built from stable locators.
-> - The raw events, console, network, and screenshots as clean JSON.
->
-> Free and open source under the MIT license.
+> If you have bugs, please tell us at: https://github.com/jmitchel3/recaptain/issues
+> If you like this extension, please star it on GitHub: https://github.com/jmitchel3/recaptain
 
 ---
 

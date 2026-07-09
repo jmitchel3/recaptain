@@ -1,4 +1,4 @@
-// Minimal ESLint flat config — catches syntax errors, typos, and common
+// Minimal ESLint flat config: catches syntax errors, typos, and common
 // sloppiness without being opinionated about style.
 import js from '@eslint/js';
 import globals from 'globals';

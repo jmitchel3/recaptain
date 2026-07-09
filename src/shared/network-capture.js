@@ -1,6 +1,6 @@
 // Network capture: monkey-patches window.fetch and XMLHttpRequest so the
 // recorder can emit one `network` activity entry per request. Lives in the
-// content script (page-side) — only there can we see the page's actual
+// content script (page-side): only there can we see the page's actual
 // fetch/XHR. Service-worker-side webRequest is deliberately not used; this
 // extension has no host permissions and we want zero network-related
 // permission surface.
@@ -12,7 +12,7 @@
 
 import { scrubUrl, redactConsoleArg } from './privacy.js';
 
-// Headers we never want to see in captured metadata. Not captured today —
+// Headers we never want to see in captured metadata. Not captured today,
 // listed defensively in case a later version adds header capture and forgets.
 const SENSITIVE_HEADERS = new Set([
   'authorization',
@@ -28,7 +28,7 @@ const DEFAULT_OPTIONS = {
   bodyMimeAllowlist: ['application/json', 'text/plain'],
 };
 
-// Module-level state. Singleton on purpose — waiting-mode detector imports
+// Module-level state. Singleton on purpose; waiting-mode detector imports
 // getInFlightCount directly and expects one shared counter.
 let installed = false;
 let inFlight = 0;
@@ -41,7 +41,7 @@ export function getInFlightCount() {
 }
 
 // Strip sensitive entries from a header-like map before it ever hits an
-// event. Not used right now (we don't capture headers) — exported for the
+// event. Not used right now (we don't capture headers), exported for the
 // integration layer if it ever wants request/response header summaries.
 export function filterSensitiveHeaders(headers) {
   const out = {};
@@ -96,7 +96,7 @@ export function installNetworkCapture({ onEvent, options } = {}) {
     try { uninstallFetch(); } catch {}
     /* node:coverage ignore next */
     try { uninstallXhr(); } catch {}
-    // Don't reset inFlight here — outstanding requests will still settle and
+    // Don't reset inFlight here; outstanding requests will still settle and
     // decrement through their already-captured closures; zeroing now would
     // underflow.
     originalFetch = null;
@@ -185,7 +185,7 @@ function patchFetch(emit, opts) {
         /* node:coverage ignore next */
         } catch {}
       }).catch(() => {
-        // Body read failed — still emit the event with null body rather than
+        // Body read failed; still emit the event with null body rather than
         // losing the record entirely.
         settle();
         try {
@@ -207,7 +207,7 @@ function patchFetch(emit, opts) {
         } catch {}
       });
     } catch {
-      // Metadata path blew up — still decrement and emit a minimal event so
+      // Metadata path blew up; still decrement and emit a minimal event so
       // in-flight accounting stays honest.
       settle();
       try {
@@ -254,7 +254,7 @@ async function captureResponseBody(response, contentType, opts) {
   if (!contentType) return empty;
   const mime = String(contentType).split(';')[0].trim().toLowerCase();
   if (!opts.bodyMimeAllowlist.some((m) => mime === m.toLowerCase())) return empty;
-  // Streaming responses already consume their body when read — clone and
+  // Streaming responses already consume their body when read; clone and
   // read on the copy. If cloning or reading throws (opaque, already used,
   // CORS), swallow it.
   let clone;
@@ -270,7 +270,7 @@ async function captureResponseBody(response, contentType, opts) {
     out = out.slice(0, opts.maxBodyBytes);
     truncated = true;
   }
-  // Run through the same console-arg redactor — it catches token=XXX-style
+  // Run through the same console-arg redactor; it catches token=XXX-style
   // leaks inside JSON error envelopes and log payloads.
   /* node:coverage ignore next */
   try { out = redactConsoleArg(out); } catch {}
@@ -284,7 +284,7 @@ function estimateBodySize(body) {
     if (body instanceof ArrayBuffer) return body.byteLength;
     if (ArrayBuffer.isView(body)) return body.byteLength;
     if (typeof Blob !== 'undefined' && body instanceof Blob) return body.size;
-    // URLSearchParams / FormData / ReadableStream — not worth measuring.
+    // URLSearchParams / FormData / ReadableStream, not worth measuring.
   /* node:coverage ignore next */
   } catch {}
   return null;
@@ -293,7 +293,7 @@ function estimateBodySize(body) {
 // --- XHR ----------------------------------------------------------------
 
 // Per-XHR state. WeakMap so garbage collection of the XHR instance cleans
-// up automatically — we never leak state for aborted, never-started, or
+// up automatically; we never leak state for aborted, never-started, or
 // forgotten requests.
 const xhrState = new WeakMap();
 
@@ -323,7 +323,7 @@ function patchXhr(emit, opts) {
     /* node:coverage ignore next */
     try { state = xhrState.get(this); } catch {}
     if (!state) {
-      // open() wasn't tracked — fall through without telemetry.
+      // open() wasn't tracked; fall through without telemetry.
       return originalXhrSend.call(this, body);
     }
     state.start = Date.now();
@@ -417,7 +417,7 @@ function captureXhrResponseBody(xhr, contentType, opts) {
   let text;
   try {
     // responseType '' or 'text' → .responseText. For arraybuffer/blob we'd
-    // need to decode; not worth the complexity for v1 — emit metadata only.
+    // need to decode; not worth the complexity for v1, emit metadata only.
     const rt = xhr.responseType;
     if (rt && rt !== 'text') return empty;
     text = xhr.responseText;
@@ -458,7 +458,7 @@ function buildEvent({
     kind: 'network',
     ts: start,
     // background.js stamps `t` relative to state.startedAt via
-    // normalizeIncomingEvent — leave null so the SW is the single source of
+    // normalizeIncomingEvent; leave null so the SW is the single source of
     // truth for recording-relative timestamps.
     t: null,
     url: scrubbed,
@@ -477,7 +477,7 @@ function buildEvent({
 }
 
 // Test-only: reset module state between test cases. Not exported from the
-// package's public barrel — the tests import it directly.
+// package's public barrel; the tests import it directly.
 export function __resetForTests() {
   installed = false;
   inFlight = 0;

@@ -294,7 +294,7 @@ test('pages section renders headings/landmarks/actions/forms/screenshot', () => 
     },
   ];
   const out = buildRecapMd({ manifest: manifest(), events: [], pages });
-  assert.match(out, /\[p1\] https:\/\/example\.com\/home — "Home"/);
+  assert.match(out, /\[p1\] https:\/\/example\.com\/home - "Home"/);
   assert.match(out, /headings: Welcome, Get started/);
   assert.match(out, /landmarks: banner, main, contentinfo/);
   assert.match(out, /actions: button "Sign in" -> getByRole\('button', \{ name: 'Sign in' \}\)/);
@@ -408,7 +408,7 @@ test('pages and page-building tolerate sparse or invalid data', () => {
   assert.match(out, /landmarks: main/);
   assert.match(out, /actions: \? "" ->/);
   assert.match(out, /forms: "" \[text:\]/);
-  assert.match(out, /\[p2\] {2}— ""/);
+  assert.match(out, /\[p2\] {2}- ""/);
   assert.match(out, /headings: \(none\)/);
 });
 
@@ -473,7 +473,7 @@ test('buildPagesJson handles non-arrays and missing screenshot targets', () => {
     events: [],
     pages: [{ id: 'manual' }],
   });
-  assert.match(manualOut, /\[manual\] {2}— ""/);
+  assert.match(manualOut, /\[manual\] {2}- ""/);
   assert.match(manualOut, /headings: \(none\)/);
   assert.match(manualOut, /landmarks: \(none\)/);
   assert.match(manualOut, /actions: \(none\)/);

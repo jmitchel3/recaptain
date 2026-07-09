@@ -113,7 +113,7 @@ async function runFlow({ context, sw, url, label }) {
     await self.__recaptainTest.start({ label: lbl, mic: false, description: null, saveAs: false });
   }, label);
 
-  // Same scripted actions in both runs — driven by stable #ids so the
+  // Same scripted actions in both runs, driven by stable #ids so the
   // accessible-name drift in v2 doesn't break the script (it's the recorder's
   // job to notice the drift).
   await page.click('#primary');

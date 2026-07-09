@@ -32,7 +32,7 @@ export const REDACT_SOURCES = [
 ];
 
 // Precompiled selector covering every vendor convention above. Used by
-// shouldRedactElement + collectRedactRects — a single querySelectorAll can
+// shouldRedactElement + collectRedactRects: a single querySelectorAll can
 // light up every flagged element in the page in one pass.
 export const REDACT_SELECTOR = REDACT_SOURCES
   .flatMap((s) => s.selectors)
@@ -80,7 +80,7 @@ export function scrubUrlRelative(u, base) {
 // Content-script-only: whether a form field should have its value masked.
 // Takes a DOM element. Not used in the service worker (no DOM).
 //
-// This is the *input masking* predicate — it replaces a captured value with
+// This is the *input masking* predicate: it replaces a captured value with
 // null + value_length. It's strictly narrower than shouldRedactElement:
 // only form controls are considered, and a non-input ancestor with
 // [data-private] does NOT cause input masking on its own (the surrounding
@@ -123,7 +123,7 @@ export function shouldMaskField(el) {
 }
 
 // Content-script-only: whether a screenshot should paint over an element's
-// bounding box. Broader than shouldMaskField — applies to any element (not
+// bounding box. Broader than shouldMaskField, applies to any element (not
 // just form fields), and walks ancestors so a `<table data-private>` hides
 // every cell inside it.
 //
@@ -132,7 +132,7 @@ export function shouldMaskField(el) {
 export function shouldRedactElement(el) {
   if (!el || typeof el.closest !== 'function') return false;
   if (el.closest(REDACT_SELECTOR)) return true;
-  // Form-field input masking is a superset reason for redaction — if we'd
+  // Form-field input masking is a superset reason for redaction; if we'd
   // null out the value, we shouldn't leave the rendered text on screen.
   const tag = el.tagName?.toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') {
@@ -151,7 +151,7 @@ export function scrubCssPath(path) {
   });
 }
 
-// Redact a single console argument (string) — replaces token-like substrings.
+// Redact a single console argument (string): replaces token-like substrings.
 export function redactConsoleArg(s) {
   if (typeof s !== 'string') return s;
   return s.replace(CONSOLE_REDACT, (match) => match.replace(/([:=])(.*)/, '$1<redacted>'));
@@ -165,5 +165,5 @@ export const PRIVACY_MANIFEST = {
   url_scrubbing: 'URL query-param values for well-known secret keys (code, token, state, sig, nonce, auth, bearer, jwt, api_key, x-amz-*, etc.) and high-entropy JWT-shaped values are replaced with ***',
   screenshot_redaction: 'Elements matching REDACT_SELECTOR (or any ancestor matching it), plus any form field that would be input-masked, have their bounding box painted over in each screenshot. Mode (black/blur/off) is operator-configurable. Per-screenshot rects are persisted in screenshots/index.json under mask_rects.',
   redaction_sources: REDACT_SOURCES.map((s) => s.vendor),
-  notes: 'Masked field values are replaced with null + value_length. Screenshot redaction is best-effort — it only covers elements present in the viewport at capture time and relies on the vendor conventions above, so operators should still avoid flows where un-tagged secrets are on screen.',
+  notes: 'Masked field values are replaced with null + value_length. Screenshot redaction is best-effort; it only covers elements present in the viewport at capture time and relies on the vendor conventions above, so operators should still avoid flows where un-tagged secrets are on screen.',
 };

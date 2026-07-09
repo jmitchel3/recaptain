@@ -39,7 +39,7 @@ function stubFetch(resTable) {
     if (cfg.body != null) headers.set('content-length', String(cfg.body.length));
     const responseBody = cfg.body == null ? '' : cfg.body;
     // A just-enough Response-like object. fetch() patch uses .status, .ok,
-    // .headers.get, .clone(), .text() — we provide those.
+    // .headers.get, .clone(), .text(); we provide those.
     const response = {
       status: cfg.status,
       ok: cfg.status >= 200 && cfg.status < 300,

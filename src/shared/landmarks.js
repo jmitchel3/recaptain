@@ -5,7 +5,7 @@
 //  - Fast. Runs on the hot navigation path; a single heavy querySelectorAll
 //    per section is fine, recursive walks are not.
 //  - Privacy-respecting. Anything flagged by shouldRedactElement is dropped
-//    entirely, not just emptied — we don't want stub placeholders leaking
+//    entirely, not just emptied; we don't want stub placeholders leaking
 //    the *presence* of sensitive data into the digest.
 //  - Minimal. Landmarks are a navigational overview, not a DOM dump. Caps on
 //    counts + string lengths keep bundle size bounded even on giant pages.
@@ -19,7 +19,7 @@ const MAX_FIELDS_PER_FORM = 15;
 const MAX_NAV_ITEMS = 50;
 
 // ARIA landmark roles we report, in the order we'd want them surfaced. Only
-// these get a slot in the landmarks[] array — decorative sectioning elements
+// these get a slot in the landmarks[] array; decorative sectioning elements
 // are intentionally skipped.
 const LANDMARK_ROLES = ['banner', 'navigation', 'main', 'complementary', 'contentinfo', 'search', 'region', 'form'];
 
@@ -36,7 +36,7 @@ const IMPLICIT_LANDMARK_TAG = {
 };
 
 // Query params stripped when canonicalizing nav/anchor hrefs for dedup. We
-// don't scrub these everywhere (they're valuable signal in events.json) —
+// don't scrub these everywhere (they're valuable signal in events.json),
 // only when deciding "did the operator already visit this link."
 const TRACKING_PARAM_RE = /^(utm_.*|fbclid|gclid|ref|mc_cid|mc_eid|_ga|_gl)$/i;
 
@@ -103,7 +103,7 @@ export function canonicalizeHref(href) {
 
 // Find the page's primary nav region. Order matches the spec: <nav> first,
 // then role=navigation, then aria-label heuristics, then class heuristics.
-// Returns the element, not a selector string — the caller wants to query
+// Returns the element, not a selector string: the caller wants to query
 // inside it.
 function findPrimaryNavEl() {
   const nav = document.querySelector('nav');
@@ -112,7 +112,7 @@ function findPrimaryNavEl() {
   const roleNav = document.querySelector('[role="navigation"]');
   if (roleNav) return { el: roleNav, selector: '[role="navigation"]' };
 
-  // aria-label heuristics — case-insensitive substring match against a short
+  // aria-label heuristics: case-insensitive substring match against a short
   // list of conventional "primary nav" labels.
   const labelled = document.querySelectorAll('[aria-label]');
   for (const el of labelled) {
@@ -129,7 +129,7 @@ function findPrimaryNavEl() {
 }
 
 // Top-2 Playwright locators for a CTA. Mirrors the content.js describeElement
-// shape but shorter — the digest only needs a stable primary + one fallback.
+// shape but shorter: the digest only needs a stable primary + one fallback.
 function topLocators(el) {
   const out = [];
   const testId = el.getAttribute?.('data-testid') || el.getAttribute?.('data-test-id') || el.getAttribute?.('data-qa');
@@ -147,7 +147,7 @@ function topLocators(el) {
 }
 
 // Region classification for nav_items. We only need "where on the page is
-// this link" to help the consumer tell chrome from content — not a precise
+// this link" to help the consumer tell chrome from content, not a precise
 // DOM address.
 function classifyRegion(el, primaryNavEl) {
   if (primaryNavEl && primaryNavEl.contains(el)) return 'primary-nav';
@@ -183,7 +183,7 @@ function collectLandmarks() {
     // `section` without an accessible name isn't a landmark per ARIA spec.
     const name = accessibleName(el);
     if (role === 'region' && !name) continue;
-    // Dedup on role+name — multiple unnamed <nav>s collapse to one.
+    // Dedup on role+name: multiple unnamed <nav>s collapse to one.
     const key = `${role}:${name || ''}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -214,7 +214,7 @@ function collectActions() {
   return out;
 }
 
-// Forms in the main region. Field labels only — values are intentionally
+// Forms in the main region. Field labels only; values are intentionally
 // omitted even if non-sensitive, because the form list is a schema, not a
 // state dump.
 function collectForms() {
@@ -263,7 +263,7 @@ function collectNavItems(primaryNavEl) {
     if (!text) continue;
     const href = canonicalizeHref(a.getAttribute('href'));
     if (!href) continue;
-    // Dedup by href+text — same link appearing twice (e.g. logo + nav) only
+    // Dedup by href+text: same link appearing twice (e.g. logo + nav) only
     // counts once.
     const key = `${href}|${text}`;
     if (seen.has(key)) continue;

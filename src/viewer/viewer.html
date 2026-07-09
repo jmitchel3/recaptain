@@ -10,11 +10,11 @@
   Recaptain bundle viewer.
 
   This file is copied into every recording bundle as `index.html`. Double-click
-  it after unzipping to inspect the recording. No server required — it runs from
+  it after unzipping to inspect the recording. No server required: it runs from
   file:// with no fetch calls.
 
   ──────────────────────────────────────────────────────────────────────────
-  PLACEHOLDER CONTRACT — for the extension's bundle-assembly step.
+  PLACEHOLDER CONTRACT: for the extension's bundle-assembly step.
   ──────────────────────────────────────────────────────────────────────────
   At bundle-assembly time (src/background.js :: assembleBundle), replace each
   of the five sentinels below with the JSON string of the corresponding file.
@@ -30,7 +30,7 @@
 
   Binary assets (PNG/JPG screenshots, audio.webm) load via normal <img>/<audio>
   tags using the relative paths already recorded in screenshots/index.json and
-  manifest.audio.file — those work fine from file://.
+  manifest.audio.file; those work fine from file://.
 
   If a sentinel is left unreplaced (e.g. the viewer is loaded standalone for
   development), viewer.js falls back to an empty default and renders a notice.
@@ -182,7 +182,7 @@
     </div>
   </div>
 
-  <!-- Classic (non-module) script — ES modules are blocked on file:// in Chrome. -->
+  <!-- Classic (non-module) script; ES modules are blocked on file:// in Chrome. -->
   <script src="viewer.js"></script>
 </body>
 </html>

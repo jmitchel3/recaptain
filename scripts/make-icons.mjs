@@ -1,7 +1,7 @@
 // Generates simple placeholder icon PNGs (16, 48, 128) into src/icons/.
 // Draws a filled rounded square with a small record dot using the Canvas-free
 // trick: build a raw RGBA buffer and encode with minimal PNG via pngjs-lite
-// wouldn't be worth the dep — we write a tiny deflate+CRC encoder inline.
+// wouldn't be worth the dep; we write a tiny deflate+CRC encoder inline.
 //
 // Simpler path: write an uncompressed-RGBA PNG using the standard chunk layout.
 import { writeFileSync, mkdirSync } from 'node:fs';

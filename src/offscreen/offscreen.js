@@ -82,7 +82,7 @@ function resume() {
   startLevelMeter();
 }
 
-// Blob URLs created in the offscreen doc — we keep the map so the SW can ask
+// Blob URLs created in the offscreen doc; we keep the map so the SW can ask
 // us to revoke the URL once chrome.downloads is done with it.
 const blobUrls = new Map(); // id -> url
 

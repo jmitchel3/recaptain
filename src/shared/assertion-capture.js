@@ -1,4 +1,4 @@
-// Assertion capture — a hotkey-driven overlay that turns the recording from
+// Assertion capture: a hotkey-driven overlay that turns the recording from
 // a passive trace into a test. Operator hovers an element, presses
 // Cmd/Ctrl+Shift+A, picks an assertion kind in a small Shadow-DOM overlay,
 // and an `assertion` activity event is emitted alongside the usual trace.
@@ -58,7 +58,7 @@ export function installAssertionCapture({ onAssertion, describeElement }) {
     const mac = isMac();
     const modOk = mac ? (e.metaKey && !e.ctrlKey) : (e.ctrlKey && !e.metaKey);
     if (!modOk || !e.shiftKey) return;
-    // Match 'A' (case-insensitive — shift may upper-case it in .key)
+    // Match 'A' (case-insensitive; shift may upper-case it in .key)
     if (e.key !== 'A' && e.key !== 'a') return;
     e.preventDefault();
     e.stopPropagation();
@@ -70,7 +70,7 @@ export function installAssertionCapture({ onAssertion, describeElement }) {
 
   // --- overlay ---------------------------------------------------------
 
-  // Tiny version of sidepanel's targetLabel — just enough for a title.
+  // Tiny version of sidepanel's targetLabel, just enough for a title.
   function shortLabel(t) {
     if (!t) return 'element';
     if (t.accessible_name) return `${t.role || t.tag || '?'} "${t.accessible_name}"`;
@@ -82,7 +82,7 @@ export function installAssertionCapture({ onAssertion, describeElement }) {
     return t.tag || 'element';
   }
 
-  // Best-effort CSS selector from the describeElement output — used to pre-fill
+  // Best-effort CSS selector from the describeElement output, used to pre-fill
   // the count field. We accept any match count; the operator can overwrite.
   function primarySelector(desc) {
     if (!desc) return null;
@@ -304,7 +304,7 @@ export function installAssertionCapture({ onAssertion, describeElement }) {
         return;
       }
       if (e.key === 'Enter') {
-        // Don't swallow Enter on the select dropdown itself — it might be open.
+        // Don't swallow Enter on the select dropdown itself; it might be open.
         if (e.target?.tagName === 'SELECT' && e.target.matches(':focus')) {
           // selects submit naturally; still proceed
         }
@@ -322,7 +322,7 @@ export function installAssertionCapture({ onAssertion, describeElement }) {
     renderFields();
     positionPanel(panel, targetEl);
 
-    // Focus something sensible — the first input, or the kind select.
+    // Focus something sensible: the first input, or the kind select.
     queueMicrotask(() => {
       const first = panel.querySelector('input, select');
       first?.focus();

@@ -3,7 +3,7 @@
 // A "project" is { name, dirHandle, createdAt, lastUsedAt }. The directory
 // handle is a live FileSystemDirectoryHandle persisted in IndexedDB (handles
 // are structured-cloneable). Permission on a stored handle does NOT survive
-// a browser restart — we re-request on Start, which carries the user gesture.
+// a browser restart; we re-request on Start, which carries the user gesture.
 
 const DB_NAME = 'recaptain';
 const DB_VERSION = 1;
@@ -156,7 +156,7 @@ export async function writeBundleToProject(root, folder, files) {
     await writeBytes(dir, relPath, bytes);
   }
 
-  // Completion marker — written last.
+  // Completion marker, written last.
   const manifestBytes = files['manifest.json'];
   if (manifestBytes) {
     await writeBytes(dir, 'manifest.json', manifestBytes);

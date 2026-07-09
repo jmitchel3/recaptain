@@ -30,7 +30,7 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
-/* Fixed export frame — screenshotted 1:1 */
+/* Fixed export frame, screenshotted 1:1 */
 .canvas {
   position: relative;
   overflow: hidden;

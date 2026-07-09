@@ -51,7 +51,7 @@ export async function persistScreenshot(seq, shot) {
     store.put({ seq, ...shot });
     await done;
   } catch {
-    // IDB failure is non-fatal — crash recovery for screenshots is a
+    // IDB failure is non-fatal; crash recovery for screenshots is a
     // nice-to-have, not a requirement. Text events are far more important.
   }
 }
@@ -78,7 +78,7 @@ export async function clearScreenshots() {
   } catch {}
 }
 
-// Debounced writer — coalesces bursts of activity into one write. The delay
+// Debounced writer: coalesces bursts of activity into one write. The delay
 // trades recoverability for cost: shorter = less lost on crash, more writes.
 let flushTimer = null;
 let pendingFlush = null;
@@ -104,7 +104,7 @@ export function persistStateSoon(meta, activity, consoleEntries, { delayMs = 500
     try {
       await chrome.storage.session.set(payload);
     } catch {
-      // Quota or serialization error — drop silently; next flush will retry.
+      // Quota or serialization error: drop silently; next flush will retry.
     }
   }, delayMs);
 }

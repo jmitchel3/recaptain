@@ -1,10 +1,10 @@
-// recap-export.js — pure functions that turn a session's raw activity stream
+// recap-export.js: pure functions that turn a session's raw activity stream
 // into the two digest artifacts we ship in each bundle:
 //   - pages.json  : structured landmark snapshots, deduped by canonical URL
 //   - RECAP.md    : dense LLM-readable session summary
 //
 // No chrome.*, no DOM, no fs. Safe for MV3 service worker context.
-// The RECAP.md format is a product contract — downstream LLMs parse it; see
+// The RECAP.md format is a product contract: downstream LLMs parse it; see
 // `.agent-notes/07-recap.md` for the schema spec.
 
 const NAV_CANONICAL_STRIP_QS = /^(utm_.*|fbclid|gclid|ref|mc_cid|mc_eid|_ga|_gl)$/i;
@@ -160,7 +160,7 @@ export function buildRecapMd({ manifest, events, pages, tabTimeline } = {}) {
 // ---- section builders ------------------------------------------------------
 
 function pushPage(lines, p) {
-  lines.push(`[${p.id}] ${p.url || ''} — "${escQ(p.title || '')}"`);
+  lines.push(`[${p.id}] ${p.url || ''} - "${escQ(p.title || '')}"`);
   const headings = (p.headings || [])
     .map((h) => (typeof h === 'string' ? h : h?.text))
     .filter(Boolean)
@@ -462,7 +462,7 @@ function escQ(s) {
     .replace(/\r?\n/g, '↵');
 }
 
-// Escape a non-quoted message body (console line, etc.) — we still want
+// Escape a non-quoted message body (console line, etc.): we still want
 // single-line output but don't need quote escaping.
 function escLine(s) {
   return String(s || '').replace(/\r?\n/g, '↵');

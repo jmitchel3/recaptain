@@ -17,7 +17,7 @@ import { installAssertionCapture } from './shared/assertion-capture.js';
 import { captureLandmarkSnapshot, detectPrimaryNav } from './shared/landmarks.js';
 
 if (window.__recaptainRecorderInstalled__) {
-  // No-op — another copy of this script is already running in this page.
+  // No-op: another copy of this script is already running in this page.
 } else {
   window.__recaptainRecorderInstalled__ = true;
   install();
@@ -45,7 +45,7 @@ const inputLastSent = new WeakMap(); // element → last value string (for chang
 // --- element description & selectors -----------------------------------
 
 // Minimal ARIA role inference for tags where the implicit role is well-defined
-// enough to be useful as a locator. Incomplete on purpose — falls back to
+// enough to be useful as a locator. Incomplete on purpose: falls back to
 // tag-name locators when nothing matches.
 function impliedRole(el) {
   const t = el.tagName?.toLowerCase();
@@ -196,7 +196,7 @@ function describeElement(el) {
     locatorKinds.push(['css', css]);
   }
 
-  // Best-effort parallel match counts. Fully guarded — must never break emission.
+  // Best-effort parallel match counts. Fully guarded: must never break emission.
   let locator_matches = null;
   try {
     locator_matches = locators.map((str, i) => {
@@ -290,7 +290,7 @@ function onAuxClick(e) {
 function onKeyDown(e) {
   if (!recording) return;
   if (window.__recaptainAssertionActive) return;
-  // Only meaningful keys — typing flow is captured via input events (debounced).
+  // Only meaningful keys: typing flow is captured via input events (debounced).
   const K = e.key;
   const meaningful = new Set(['Enter', 'Escape', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', ' ']);
   if (!meaningful.has(K) && !(e.metaKey || e.ctrlKey)) return;
@@ -321,7 +321,7 @@ function sendInputSnapshot(el, final) {
   if (el.closest?.('.recaptain-ignore, [data-recaptain-block]')) return;
   const baseMasked = shouldMaskField(el);
   const raw = el.value != null ? String(el.value) : '';
-  // Secondary high-entropy masking — only triggers when the field wasn't
+  // Secondary high-entropy masking: only triggers when the field wasn't
   // already masked by name/type heuristics. Tag with mask_reason so consumers
   // can distinguish from policy-based masking.
   const highEntropy = !baseMasked && raw.length >= 32 && /^[A-Za-z0-9+/=._-]{32,}$/.test(raw);
@@ -351,7 +351,7 @@ function onInput(e) {
   const tag = el.tagName?.toLowerCase();
   if (tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !el.isContentEditable) return;
 
-  // Debounce typing — we don't want one entry per keystroke.
+  // Debounce typing: we don't want one entry per keystroke.
   const prev = inputDebounce.get(el);
   if (prev) clearTimeout(prev);
   inputDebounce.set(el, setTimeout(() => {
@@ -547,7 +547,7 @@ function start(opts = {}) {
     }
   } catch {}
 
-  // Initial landmark snapshot — captures the starting page even if the
+  // Initial landmark snapshot: captures the starting page even if the
   // operator never navigates. Subsequent navs re-trigger this path on
   // content-script re-install (full-page loads; SPA pushState is a known
   // limitation documented in .agent-notes/07-recap.md).

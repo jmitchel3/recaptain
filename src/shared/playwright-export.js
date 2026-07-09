@@ -1,9 +1,9 @@
-// playwright-export.js — pure converter from a Recaptain bundle to a
+// playwright-export.js: pure converter from a Recaptain bundle to a
 // runnable Playwright `.spec.ts` test file. Mirrors many of the collapsing and
 // locator-selection rules in scripts/bundle-to-skeleton.mjs but emits TypeScript
 // instead of a `wb` markdown runbook.
 //
-// Pure function — no chrome.*, DOM, or Node-specific APIs. Safe for the MV3
+// Pure function: no chrome.*, DOM, or Node-specific APIs. Safe for the MV3
 // service worker context.
 
 const SKIP_KINDS = new Set(['focus', 'scroll', 'pause', 'resume', 'timeout', 'console']);
@@ -135,7 +135,7 @@ export function exportPlaywrightSpec({ manifest, events, screenshotsIndex, conso
       if (nextLoc) {
         pushLine(`    await ${locatorChain(nextLoc)}.waitFor({ state: 'visible' });`);
       } else {
-        pushComment(`idle ${d}ms (no stable next locator — consider a manual waitFor)`);
+        pushComment(`idle ${d}ms (no stable next locator: consider a manual waitFor)`);
       }
       continue;
     }
@@ -236,7 +236,7 @@ export function exportPlaywrightSpec({ manifest, events, screenshotsIndex, conso
     }
 
     if (k === 'network') {
-      // Standalone network events outside a bracket are noise — skip.
+      // Standalone network events outside a bracket are noise, skip.
       continue;
     }
 

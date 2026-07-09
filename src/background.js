@@ -18,7 +18,7 @@ const OFFSCREEN_PATH = 'offscreen.html';
 // `note` activity entry so downstream consumers know image quality changed.
 const SHOT_COMPRESS_THRESHOLD_BYTES = 20 * 1024 * 1024;
 const SHOT_JPEG_QUALITY = 0.6;
-// Width cap on the sidepanel preview thumbnail — the full PNG is kept in
+// Width cap on the sidepanel preview thumbnail; the full PNG is kept in
 // state for the bundle; the feed only needs something readable.
 const SHOT_THUMB_MAX_WIDTH = 360;
 const SHOT_THUMB_QUALITY = 0.5;
@@ -57,7 +57,7 @@ const state = {
   micLevel: 0,        // 0..1 RMS from offscreen
   micLevelAt: 0,
   startUrl: null,
-  activity: [],       // unified event stream (all kinds) — feeds sidepanel + bundle
+  activity: [],       // unified event stream (all kinds), feeds sidepanel + bundle
   activitySeq: 0,
   screenshots: [],    // parallel store keeping screenshot dataUrls for bundle/preview
   consoleEntries: [], // kept for console.json convenience (denormalized from activity)
@@ -71,20 +71,20 @@ const state = {
   shotCompressed: false,   // flipped true once we switched to JPEG
   saveAs: true,            // whether chrome.downloads.download prompts Save As
   captureShots: true,      // operator toggle: capture screenshots at all
-  redactionMode: 'black',  // 'black' | 'blur' | 'off' — applied before screenshot encoding
+  redactionMode: 'black',  // 'black' | 'blur' | 'off', applied before screenshot encoding
   captureNetwork: false,   // operator toggle: capture fetch/XHR metadata
   captureNetworkBody: false, // sub-toggle: include short JSON response bodies
-  waiting: false,          // between waiting_start and waiting_end — drives throttles
+  waiting: false,          // between waiting_start and waiting_end, drives throttles
   waitingSince: null,      // Date.now() of current waiting window; null otherwise
   totalWaitingMs: 0,       // cumulative waiting time, closed on each waiting_end
   peakInFlightThisWait: 0, // mirrors detector's peak_reqs for status surface
-  manualWaiting: false,    // operator-asserted waiting — controls the button label
+  manualWaiting: false,    // operator-asserted waiting, controls the button label
   primaryNav: null,        // {region_selector, total, items} from content-script detection
-  pagesVisited: new Set(), // canonicalUrl Set — powers the coverage widget
+  pagesVisited: new Set(), // canonicalUrl Set, powers the coverage widget
 };
 
 // Active (non-paused) milliseconds since recording began. This is what the
-// session time limit gates on — wall clock includes breaks; active time is
+// session time limit gates on: wall clock includes breaks; active time is
 // what actually went into the recording.
 function activeElapsedMs() {
   if (!state.startedAt) return 0;
@@ -96,7 +96,7 @@ function activeElapsedMs() {
   return now - state.startedAt - state.totalPausedMs - state.totalWaitingMs - inFlightWait;
 }
 
-// Snapshot of durable state — the bits the SW needs to rehydrate after a
+// Snapshot of durable state: the bits the SW needs to rehydrate after a
 // crash. Screenshots are big; they go to IndexedDB separately. Everything
 // else lives in chrome.storage.session as structured JSON.
 function metaSnapshot() {
@@ -134,7 +134,7 @@ function metaSnapshot() {
 
 function schedulePersist() {
   if (!state.recording) return;
-  // Activity entries can carry `thumb_url` (data URL bytes) — strip before
+  // Activity entries can carry `thumb_url` (data URL bytes); strip before
   // persisting; rehydration rebuilds preview from IDB if needed.
   const activity = state.activity.map(({ thumb_url, ...rest }) => rest);
   persistStateSoon(metaSnapshot(), activity, state.consoleEntries);
@@ -305,7 +305,7 @@ function dataUrlToBytes(dataUrl) {
 
 // Decode a captured PNG, downscale it to a small JPEG thumbnail for sidepanel
 // preview, and optionally re-encode the full image as JPEG when we've blown
-// past the compression threshold. Runs in the SW — OffscreenCanvas and
+// past the compression threshold. Runs in the SW: OffscreenCanvas and
 // createImageBitmap are available; URL.createObjectURL is not.
 async function processCapturedShot(pngDataUrl, { compress, rects = [], mode = 'black', devicePixelRatio = 1 } = {}) {
   const pngBytes = dataUrlToBytes(pngDataUrl);
@@ -323,7 +323,7 @@ async function processCapturedShot(pngDataUrl, { compress, rects = [], mode = 'b
     const sourceCanvas = applyRedactionToBitmap(bitmap, applyRects, { mode: activeMode, devicePixelRatio });
     const redacted = applyRects.length > 0;
 
-    // Redacted shots force JPEG — PNG of a blacked/blurred shot is wasted
+    // Redacted shots force JPEG: PNG of a blacked/blurred shot is wasted
     // bytes and makes the bundle larger for no gain.
     const forceJpeg = redacted;
 
@@ -342,7 +342,7 @@ async function processCapturedShot(pngDataUrl, { compress, rects = [], mode = 'b
       }
     }
 
-    // Thumbnail — small JPEG drawn from the redacted canvas so previews are
+    // Thumbnail: small JPEG drawn from the redacted canvas so previews are
     // also safe.
     const scale = Math.min(1, SHOT_THUMB_MAX_WIDTH / sourceCanvas.width);
     const tw = Math.max(1, Math.round(sourceCanvas.width * scale));
@@ -356,7 +356,7 @@ async function processCapturedShot(pngDataUrl, { compress, rects = [], mode = 'b
     return { bytes: fullBytes, mime, thumbDataUrl: `data:image/jpeg;base64,${thumbBase64}` };
   } catch {
     // If decode/encode fails for any reason, fall back to the raw PNG with
-    // no thumbnail — we'd rather ship a valid (if uglier) bundle than skip
+    // no thumbnail; we'd rather ship a valid (if uglier) bundle than skip
     // the screenshot entirely. Redaction failure falls through here too,
     // which means we ship the un-redacted PNG; that's bad, so we flag via
     // the thumbnail being null and log.
@@ -387,7 +387,7 @@ async function takeScreenshot(reason) {
         rects = Array.isArray(resp?.rects) ? resp.rects : [];
         if (typeof resp?.devicePixelRatio === 'number') dpr = resp.devicePixelRatio;
       } catch {
-        // Tab doesn't have the content script (restricted page, etc.) —
+        // Tab doesn't have the content script (restricted page, etc.);
         // fall through with no rects. Operator-facing contract covers this.
       }
     }
@@ -424,7 +424,7 @@ async function takeScreenshot(reason) {
         kind: 'note',
         t,
         ts: Date.now(),
-        text: `[auto] screenshots switched to JPEG (quality ${SHOT_JPEG_QUALITY}) — cumulative screenshot size passed ${Math.round(SHOT_COMPRESS_THRESHOLD_BYTES / 1024 / 1024)}MB.`,
+        text: `[auto] screenshots switched to JPEG (quality ${SHOT_JPEG_QUALITY}): cumulative screenshot size passed ${Math.round(SHOT_COMPRESS_THRESHOLD_BYTES / 1024 / 1024)}MB.`,
       });
     }
 
@@ -435,7 +435,7 @@ async function takeScreenshot(reason) {
       tab_id: state.tabId,
       url: scrubUrl(state.currentTabUrl),
       mime,
-      thumb_url: thumbDataUrl, // tiny preview — not the full image
+      thumb_url: thumbDataUrl, // tiny preview, not the full image
     });
     return state.screenshots.length - 1;
   } catch {
@@ -467,7 +467,7 @@ async function maybeEnforceTimeLimit() {
   try { await stop({ target: 'download' }); } catch {}
 }
 
-// Kinds that warrant a screenshot — a click/change/submit/navigation is a
+// Kinds that warrant a screenshot: a click/change/submit/navigation is a
 // natural "moment" to capture what the UI looked like.
 const SHOT_TRIGGER_KINDS = new Set(['click', 'dblclick', 'change', 'submit', 'navigation', 'tab_switch']);
 
@@ -507,7 +507,7 @@ async function start({ label, mic, micDeviceId, description, saveAs, captureShot
   } catch {}
   state.viewport = viewport;
 
-  // Offscreen is needed regardless of mic — it's where the bundle blob URL
+  // Offscreen is needed regardless of mic: it's where the bundle blob URL
   // is created at stop time.
   await ensureOffscreen({ needMic: !!state.mic });
   if (state.mic) {
@@ -526,7 +526,7 @@ async function start({ label, mic, micDeviceId, description, saveAs, captureShot
       captureNetworkBody: state.captureNetworkBody,
     });
   } catch {
-    // Restricted page (chrome://, web store, PDF viewer, etc.) — we keep
+    // Restricted page (chrome://, web store, PDF viewer, etc.); we keep
     // recording audio + screenshots but won't get DOM events.
   }
 
@@ -665,7 +665,7 @@ async function ensureContentScript(tabId) {
       files: ['content.js'],
     });
   } catch {
-    // Restricted URL — nothing we can do.
+    // Restricted URL: nothing we can do.
   }
 }
 
@@ -693,13 +693,13 @@ async function stop({ target = 'download', projectName = null } = {}) {
       const res = await sendToOffscreen('mic:stop');
       if (res?.ok && res.bytes) audioBytes = new Uint8Array(res.bytes);
     } catch {}
-    // NOTE: do not close the offscreen doc yet — the download path below
+    // NOTE: do not close the offscreen doc yet; the download path below
     // needs it to create the bundle blob URL. Close after download/project.
   }
 
   if (target === 'project' && projectName) {
     // Load the directory handle from IDB in this (SW) context rather than
-    // accepting it through sendMessage — runtime messages JSON-serialize,
+    // accepting it through sendMessage; runtime messages JSON-serialize,
     // which strips the FileSystemDirectoryHandle prototype and leaves a
     // plain object with no methods.
     const project = await getProject(projectName).catch(() => null);
@@ -722,7 +722,7 @@ async function stop({ target = 'download', projectName = null } = {}) {
           name: 'PermissionError',
           message: !projectHandle
             ? `Project "${projectName}" not found.`
-            : `Folder access is "${perm}" — re-grant on next Start.`,
+            : `Folder access is "${perm}"; re-grant on next Start.`,
         },
       };
     }
@@ -796,7 +796,7 @@ function summarizeUrls() {
 async function assembleBundle(audioBytes, { zip = true } = {}) {
   const endedAt = Date.now();
 
-  // events.json — filter activity to the interaction kinds; drop the activity id.
+  // events.json: filter activity to the interaction kinds; drop the activity id.
   const events = state.activity
     .filter((a) => EVENT_KINDS.has(a.kind))
     .map(({ id, ...rest }) => rest);
@@ -867,7 +867,7 @@ async function assembleBundle(audioBytes, { zip = true } = {}) {
     '# LLM Conversion Prompt\n\n(consumer-prompt.md missing from extension build)\n',
   );
 
-  // pages.json + RECAP.md — session digest derived from landmark_snapshot
+  // pages.json + RECAP.md: session digest derived from landmark_snapshot
   // events. buildPagesJson dedupes by canonical URL and assigns stable IDs.
   const landmarkEvents = state.activity.filter((a) => a.kind === 'landmark_snapshot');
   const pages = buildPagesJson(landmarkEvents, shotIndex);
@@ -880,7 +880,7 @@ async function assembleBundle(audioBytes, { zip = true } = {}) {
     tabTimeline: state.tabTimeline,
   });
 
-  // replay.spec.ts — mechanical Playwright test (no LLM in the loop).
+  // replay.spec.ts: mechanical Playwright test (no LLM in the loop).
   let replaySpec = '';
   try {
     replaySpec = exportPlaywrightSpec({
@@ -914,7 +914,7 @@ async function assembleBundle(audioBytes, { zip = true } = {}) {
     manifest.audio = { file: 'audio.webm', mime: 'audio/webm' };
   }
 
-  // Self-contained HTML viewer — index.html with JSON data inlined into
+  // Self-contained HTML viewer: index.html with JSON data inlined into
   // <script type="application/json"> tags, plus companion CSS/JS. Works from
   // file:// after the consumer unzips the bundle. Binaries (screenshots,
   // audio) load via normal <img>/<audio> tags relative to index.html.
@@ -1038,7 +1038,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'sidepanel') return;
   sidepanelPorts.add(port);
-  // Rehydrate before we send the sidepanel its initial activity dump —
+  // Rehydrate before we send the sidepanel its initial activity dump;
   // otherwise a newly-opened panel right after SW wake would see empty
   // state briefly.
   rehydrateIfNeeded().finally(() => {
@@ -1061,7 +1061,7 @@ chrome.runtime.onStartup.addListener(configureSidePanel);
 configureSidePanel();
 
 // Rehydrate an in-flight recording if the SW was killed mid-session and is
-// now being woken by an event. Only text state is restored — microphone
+// now being woken by an event. Only text state is restored; microphone
 // audio cumulated in the offscreen doc is lost because MediaRecorder can't
 // span a SW crash. We mark the rehydrate in the activity stream so the
 // bundle is honest about the gap.
@@ -1108,7 +1108,7 @@ async function rehydrateIfNeeded() {
       kind: 'note',
       t: activeElapsedMs(),
       ts: Date.now(),
-      text: '[auto] recording resumed after service worker restart — mic audio from before this point was lost.',
+      text: '[auto] recording resumed after service worker restart; mic audio from before this point was lost.',
     });
 
     startPeriodicScreenshots();
@@ -1130,7 +1130,7 @@ async function rehydrateIfNeeded() {
 chrome.runtime.onStartup.addListener(() => { rehydrateIfNeeded().catch(() => {}); });
 rehydrateIfNeeded().catch(() => {});
 
-// Test hook — exposes a handful of functions so e2e tests can drive the
+// Test hook: exposes a handful of functions so e2e tests can drive the
 // recorder from the SW context via `sw.evaluate(...)` without depending on
 // the sidepanel UI. Size is negligible and access is limited to contexts
 // that can already reach the SW (extension-internal).
@@ -1163,7 +1163,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     try {
       // Ensure any in-flight recording is restored before handling the
-      // message — otherwise a fresh onMessage could race a wake-time
+      // message; otherwise a fresh onMessage could race a wake-time
       // rehydrate and see stale state.
       await rehydrateIfNeeded();
       if (msg?.type === 'recorder:start') {
@@ -1221,7 +1221,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       if (msg?.type === 'recorder:download-last') {
         // Fallback path: sidepanel tried to write to a project folder but
-        // failed (permission revoked, disk full, etc.) — re-bundle as zip
+        // failed (permission revoked, disk full, etc.); re-bundle as zip
         // and hand off to chrome.downloads so the recording isn't lost.
         if (!lastAssembled) { sendResponse({ ok: false, error: { message: 'no bundle to download' } }); return; }
         let { zipped, manifest, files } = lastAssembled;
@@ -1293,7 +1293,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           // Track the *last* pushed entry of a trigger kind in this batch so
           // we can stamp it with screenshot_id after the capture resolves.
           // If multiple trigger kinds fire in a single batch we only stamp
-          // the last one — single screenshot, single owning event.
+          // the last one: single screenshot, single owning event.
           let lastTriggerEntry = null;
           let waitingStateChanged = false;
           for (const e of msg.entries) {

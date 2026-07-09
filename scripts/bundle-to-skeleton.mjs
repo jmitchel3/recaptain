@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// bundle-to-skeleton.mjs — mechanical recording-bundle → skeleton .md converter.
+// bundle-to-skeleton.mjs: mechanical recording-bundle → skeleton .md converter.
 // See README/CLAUDE.md; no LLM, no narration parsing, no intent inference.
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
@@ -49,8 +49,8 @@ function locatorFor(ev) {
 }
 
 function emitLocatorHeader(lines, loc, indent = '  ') {
-  if (loc.noStable && !loc.primary) lines.push(`${indent}# no stable locator captured — manual selection needed`);
-  else if (loc.noStable) lines.push(`${indent}# no stable locator captured — manual selection needed (fell back to css)`);
+  if (loc.noStable && !loc.primary) lines.push(`${indent}# no stable locator captured: manual selection needed`);
+  else if (loc.noStable) lines.push(`${indent}# no stable locator captured: manual selection needed (fell back to css)`);
   for (const fb of loc.fallbacks) lines.push(`${indent}# fallback: ${fb}`);
 }
 function screenshotLine(ev, indent = '  ') {
@@ -69,7 +69,7 @@ function renderEvent(ev, block) {
     return;
   }
   if (k === 'submit') { block.push(`  # submit event; relying on prior click/key`); return; }
-  if (k === 'tab_switch') { block.push(`  # tab switch to ${ev.toUrl || ev.url || '<unknown>'} — manual adjustment needed`); return; }
+  if (k === 'tab_switch') { block.push(`  # tab switch to ${ev.toUrl || ev.url || '<unknown>'}: manual adjustment needed`); return; }
   if (k === 'navigation') {
     const url = ev.to ?? ev.url ?? null;
     block.push(`  - goto: ${yamlInline(url)}`);
@@ -129,7 +129,7 @@ function buildDocument(manifest, events) {
   lines.push('');
 
   if (!events || events.length === 0) {
-    lines.push('<!-- no events in bundle — add verbs manually below -->');
+    lines.push('<!-- no events in bundle: add verbs manually below -->');
     lines.push('```browser');
     lines.push('verbs:');
     if (startUrl) lines.push(`  - goto: ${yamlInline(startUrl)}`);

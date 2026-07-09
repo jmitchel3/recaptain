@@ -1,5 +1,5 @@
 // Waiting-mode detector. Lives on the page side and heuristically decides
-// when the operator is "waiting for the app" — i.e. not interacting, but the
+// when the operator is "waiting for the app", i.e. not interacting, but the
 // page is busy (network in flight, spinner painted, DOM churning). When this
 // holds, the recorder can throttle screenshots, pause mic, and exclude the
 // wait from the session time budget, so a flow with a 15-minute report
@@ -7,7 +7,7 @@
 //
 // This module is pure detection: it emits `waiting_start` / `waiting_end`
 // through caller-supplied callbacks and exposes a `getState()`. It does NOT
-// call chrome.runtime.sendMessage itself — the caller (content.js) is
+// call chrome.runtime.sendMessage itself; the caller (content.js) is
 // responsible for forwarding to the SW. Keeping the module transport-free
 // makes it trivially unit-testable and lets us reuse it from tests without
 // stubbing the extension runtime.
@@ -24,7 +24,7 @@
 // went idle and the operator walked away).
 //
 // Safety: every selector query / callback invocation is try/catch'd. A bug
-// here must never break the host page — the worst failure mode is silently
+// here must never break the host page; the worst failure mode is silently
 // not detecting a wait.
 
 // Optional dependency. We import at module load but guard the call site in
@@ -35,13 +35,13 @@ import { getInFlightCount as _getInFlightCount } from './network-capture.js';
 
 const DEFAULT_THRESHOLDS = {
   // Inactivity required before WAITING can arm. Operators naturally pause
-  // between clicks while reading — 10s is long enough to avoid flagging
+  // between clicks while reading; 10s is long enough to avoid flagging
   // ordinary reading as a wait.
   idleMs: 10_000,
   // All-signals-absent duration needed to leave WAITING when the user hasn't
   // interacted. Short so we exit quickly once the app quiesces.
   quiesceMs: 2_000,
-  // DOM mutation rate threshold — mutations per 1s window. 20/s sustained
+  // DOM mutation rate threshold: mutations per 1s window. 20/s sustained
   // for >=1s is about where "app re-rendering" starts, below which most
   // pages sit at normal idle.
   mutationsPerSecond: 20,
@@ -55,7 +55,7 @@ const DEFAULT_THRESHOLDS = {
   spinnerPollMs: 2000,
 };
 
-// Common spinner selectors. Matching is visibility-gated — a hidden spinner
+// Common spinner selectors. Matching is visibility-gated: a hidden spinner
 // in the DOM doesn't count. Attribute-based selectors (aria-busy,
 // progressbar) are intentionally first so role-based components light up
 // before generic class-name heuristics.
@@ -72,10 +72,10 @@ const SPINNER_SELECTOR = SPINNER_SELECTORS.join(', ');
 
 // User-input events that reset the "last input" timer. Capture phase so we
 // see them before any app handler can stop propagation. Passive listeners
-// where the DOM allows — we never prevent default, only observe.
+// where the DOM allows; we never prevent default, only observe.
 const INPUT_EVENTS = ['click', 'keydown', 'input', 'scroll', 'pointermove'];
 
-// Module-level singleton guard. Like installNetworkCapture — second install
+// Module-level singleton guard. Like installNetworkCapture, second install
 // is a warning-and-noop so a double start() doesn't brick the page. The
 // live accessor below is updated on each install/uninstall so getState()
 // reads from the currently-installed detector.
@@ -126,7 +126,7 @@ export function installWaitingDetector({
   // --- signal probes -------------------------------------------------
 
   // Network signal. If network-capture never installed, getInFlightCount
-  // returns 0 and this is effectively a no-op — exactly what we want (we
+  // returns 0 and this is effectively a no-op, exactly what we want (we
   // just lose that signal, the detector still works on spinner + churn).
   function probeNetwork() {
     try {
@@ -145,7 +145,7 @@ export function installWaitingDetector({
   }
 
   // Visibility check for spinner candidates. getBoundingClientRect is
-  // accurate enough — we don't need a full getComputedStyle per candidate,
+  // accurate enough; we don't need a full getComputedStyle per candidate,
   // and a 1px offscreen rect is fine to ignore.
   function isVisibleInViewport(el) {
     try {
@@ -175,7 +175,7 @@ export function installWaitingDetector({
   }
 
   function probeChurn() {
-    // Sustained means two consecutive windows both above threshold — avoids
+    // Sustained means two consecutive windows both above threshold, avoids
     // flagging a one-frame render burst on e.g. SPA route change.
     const sustained = churnActive;
     if (sustained) signalLastActive.dom_churn = Date.now();
@@ -193,7 +193,7 @@ export function installWaitingDetector({
   }
 
   function tick() {
-    // Roll the mutation window first — churnActive is read by probeChurn
+    // Roll the mutation window first; churnActive is read by probeChurn
     // via activeReasons() below. "Sustained" = last window AND this window
     // both above threshold.
     const rate = mutationsThisWindow;
@@ -214,7 +214,7 @@ export function installWaitingDetector({
 
     // state === 'waiting'
     if (manualOverride) {
-      // Still track reasons even while manual — downstream wants an honest
+      // Still track reasons even while manual; downstream wants an honest
       // log of what the auto-detector would have said.
       for (const r of reasons) waitingReasons.add(r);
       return;
@@ -223,7 +223,7 @@ export function installWaitingDetector({
 
     // Quiesce exit: all signals inactive for >= quiesceMs since they last
     // flipped. We measure from the latest last-active timestamp of any
-    // signal — that's when the page most recently *stopped* being busy.
+    // signal: that's when the page most recently *stopped* being busy.
     const latestActive = Math.max(
       signalLastActive.network_active,
       signalLastActive.spinner_visible,
@@ -275,7 +275,7 @@ export function installWaitingDetector({
 
   function onUserInput() {
     lastInputAt = Date.now();
-    // Any real user input exits waiting immediately — the operator is back.
+    // Any real user input exits waiting immediately; the operator is back.
     // Manual override stays sticky; only the explicit setManualWaiting(false)
     // can clear it.
     if (state === 'waiting' && !manualOverride) {
@@ -284,7 +284,7 @@ export function installWaitingDetector({
   }
 
   for (const ev of INPUT_EVENTS) {
-    // Passive + capture — we observe, never consume. pointermove can fire
+    // Passive + capture: we observe, never consume. pointermove can fire
     // at 100+ Hz; throttling isn't strictly needed because the handler just
     // updates a timestamp and runs an O(1) state check.
     try {
@@ -299,7 +299,7 @@ export function installWaitingDetector({
   // there, but guard anyway.
   const observer = new MutationObserver((mutations) => {
     // Only count. Heavy work per mutation is precisely what we're trying to
-    // avoid — a page that is already churning should not get more expensive
+    // avoid; a page that is already churning should not get more expensive
     // to observe.
     mutationsThisWindow += mutations.length;
   });
@@ -321,7 +321,7 @@ export function installWaitingDetector({
     /* node:coverage enable */
   }, T.tickMs);
 
-  // Spinner poll fires the same tick() path — we just want an extra check
+  // Spinner poll fires the same tick() path; we just want an extra check
   // at spinner cadence so entering WAITING because of a visible spinner
   // isn't delayed by up to tickMs.
   const spinnerHandle = setInterval(() => {

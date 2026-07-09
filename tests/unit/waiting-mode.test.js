@@ -6,7 +6,7 @@
 // enough of each to drive state transitions from the node test runner, and
 // use a fake timer to step through ticks deterministically.
 //
-// We deliberately do NOT exercise the real DOM — the detector's behavior is
+// We deliberately do NOT exercise the real DOM; the detector's behavior is
 // defined by what these surfaces return, so a small surface stub is enough
 // and keeps tests fast.
 
@@ -70,7 +70,7 @@ function installDom() {
 
   globalThis.document = doc;
   globalThis.window = { innerWidth: 1024, innerHeight: 768 };
-  // Minimal MutationObserver — captures the callback so tests can push
+  // Minimal MutationObserver: captures the callback so tests can push
   // synthetic mutation batches.
   const observers = [];
   globalThis.MutationObserver = class {
@@ -192,7 +192,7 @@ test('exits waiting on user input', async () => {
     globalThis.__advance(6_000);
     assert.equal(mod.getState(), 'waiting');
 
-    // Dispatch a click — should exit immediately.
+    // Dispatch a click, should exit immediately.
     doc._dispatch('click');
     assert.equal(mod.getState(), 'idle');
     assert.equal(ends.length, 1);

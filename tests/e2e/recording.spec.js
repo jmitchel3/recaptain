@@ -31,7 +31,7 @@ function startServer() {
 
 // Playwright extension-test dance: load the unpacked build, drive the
 // recorder via __recaptainTest hooks on the service worker, capture the emitted
-// download, inspect the zip. No sidepanel UI is touched — we're asserting
+// download, inspect the zip. No sidepanel UI is touched; we're asserting
 // the recorder's output contract, not its buttons.
 async function launch() {
   // Sanity check: developer forgot to build.
@@ -73,7 +73,7 @@ test('records a flow and produces a valid recording bundle', async () => {
     await page.goto(url);
     await page.bringToFront();
     // Wait a beat for the content script to register with the SW before we
-    // flip on recording — otherwise the initial state.recording -> begin
+    // flip on recording, otherwise the initial state.recording -> begin
     // message can lose the race.
     await page.waitForTimeout(300);
 
@@ -92,7 +92,7 @@ test('records a flow and produces a valid recording bundle', async () => {
     // (ACTIVITY_BATCH_MS in content.js is 400ms).
     await page.waitForTimeout(800);
 
-    // Skip chrome.downloads — Playwright doesn't reliably observe downloads
+    // Skip chrome.downloads; Playwright doesn't reliably observe downloads
     // triggered via the API. The test hook returns the zipped bytes so we
     // can inspect the bundle contract directly.
     const zippedArr = await sw.evaluate(async () => {
@@ -129,7 +129,7 @@ test('records a flow and produces a valid recording bundle', async () => {
 
     const events = JSON.parse(strFromU8(entries['events.json']));
     expect(Array.isArray(events)).toBe(true);
-    // We clicked and typed — expect at least one of each.
+    // We clicked and typed; expect at least one of each.
     expect(events.some((e) => e.kind === 'click')).toBe(true);
     expect(events.some((e) => e.kind === 'input')).toBe(true);
 

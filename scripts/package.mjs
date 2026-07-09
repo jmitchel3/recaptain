@@ -6,7 +6,7 @@ import { zipSync } from 'fflate';
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 
 if (!existsSync('dist')) {
-  console.error('[package] dist/ does not exist — run `npm run build` first.');
+  console.error('[package] dist/ does not exist; run `npm run build` first.');
   process.exit(1);
 }
 
@@ -25,7 +25,7 @@ async function collectFiles(dir, root = dir, out = {}) {
 const files = await collectFiles('dist');
 
 if (!files['manifest.json']) {
-  console.error('[package] dist/manifest.json missing — build is incomplete.');
+  console.error('[package] dist/manifest.json missing; build is incomplete.');
   process.exit(1);
 }
 
@@ -39,6 +39,6 @@ await writeFile(latest, zip);
 
 const sizeKb = (zip.byteLength / 1024).toFixed(1);
 const fileCount = Object.keys(files).length;
-console.log(`[package] ${versioned} — ${fileCount} files, ${sizeKb} KB`);
-console.log(`[package] ${latest} — same bytes, versionless filename for releases/latest URL`);
+console.log(`[package] ${versioned}: ${fileCount} files, ${sizeKb} KB`);
+console.log(`[package] ${latest}: same bytes, versionless filename for releases/latest URL`);
 console.log(`[package] upload both to: gh release create v${pkg.version} ${versioned} ${latest}`);

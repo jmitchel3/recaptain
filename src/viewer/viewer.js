@@ -1,4 +1,4 @@
-/* viewer.js — self-contained bundle viewer.
+/* viewer.js: self-contained bundle viewer.
  *
  * Runs as a classic script (not a module) so it works from file:// in Chrome.
  * Reads bundle data from inline <script type="application/json"> tags whose
@@ -10,7 +10,7 @@
   'use strict';
 
   // ───────────────────────────────────────────────────────────────────────
-  // Data loading — inline JSON with sensible fallbacks when sentinels
+  // Data loading: inline JSON with sensible fallbacks when sentinels
   // haven't been replaced yet (e.g. running this file standalone from src/).
   // ───────────────────────────────────────────────────────────────────────
   function loadInline(id, fallback) {
@@ -64,7 +64,7 @@
   }
 
   function fmtDurationMs(ms) {
-    if (ms == null) return '—';
+    if (ms == null) return '-';
     if (ms < 1000) return `${Math.round(ms)}ms`;
     const total = Math.floor(ms / 1000);
     const m = Math.floor(total / 60);
@@ -74,14 +74,14 @@
   }
 
   function fmtBytes(n) {
-    if (n == null) return '—';
+    if (n == null) return '-';
     if (n < 1024) return `${n}B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`;
     return `${(n / (1024 * 1024)).toFixed(1)}MB`;
   }
 
   function fmtISO(iso) {
-    if (!iso) return '—';
+    if (!iso) return '-';
     try {
       const d = new Date(iso);
       return d.toLocaleString();
@@ -208,7 +208,7 @@
     if (!manifest.description) descEl.style.display = 'none';
 
     const metaRows = [
-      ['format', manifest.format || '—'],
+      ['format', manifest.format || '-'],
       ['started', fmtISO(manifest.started_at)],
       ['ended', fmtISO(manifest.ended_at)],
       ['duration', fmtDurationMs(manifest.duration_ms)],
@@ -224,7 +224,7 @@
       ? hosts.map((h) => `<span class="chip">${escapeHTML(h)}</span>`).join('')
       : '<span class="muted">no hosts recorded</span>';
 
-    document.title = `${label} — Recaptain Recording`;
+    document.title = `${label} - Recaptain Recording`;
   }
 
   // ───────────────────────────────────────────────────────────────────────
@@ -406,9 +406,9 @@
         <div class="focus-section">
           <h3>Request / Response</h3>
           <div class="kv">
-            <div class="kv-row"><span class="k">method</span><span>${escapeHTML(e.method || '—')}</span></div>
-            <div class="kv-row"><span class="k">url</span><span>${escapeHTML(e.url || '—')}</span></div>
-            <div class="kv-row"><span class="k">status</span><span>${escapeHTML(String(e.status ?? '—'))}</span></div>
+            <div class="kv-row"><span class="k">method</span><span>${escapeHTML(e.method || '-')}</span></div>
+            <div class="kv-row"><span class="k">url</span><span>${escapeHTML(e.url || '-')}</span></div>
+            <div class="kv-row"><span class="k">status</span><span>${escapeHTML(String(e.status ?? '-'))}</span></div>
             <div class="kv-row"><span class="k">duration</span><span>${escapeHTML(fmtDurationMs(e.duration_ms))}</span></div>
             <div class="kv-row"><span class="k">size</span><span>${escapeHTML(fmtBytes(e.size ?? e.response_size))}</span></div>
           </div>
@@ -552,7 +552,7 @@
         <td class="col-time">${fmtRelTime(n.t ?? 0)}</td>
         <td class="col-method">${escapeHTML(n.method || 'GET')}</td>
         <td class="col-url" title="${escapeHTML(n.url || '')}">${escapeHTML(n.url || '')}</td>
-        <td class="col-status">${escapeHTML(String(n.status ?? '—'))}</td>
+        <td class="col-status">${escapeHTML(String(n.status ?? '-'))}</td>
         <td class="col-duration">${escapeHTML(fmtDurationMs(n.duration_ms))}</td>
         <td class="col-size">${escapeHTML(fmtBytes(n.size ?? n.response_size))}</td>
       `;
@@ -634,7 +634,7 @@
     const rows = [];
     for (const [tabId, entries] of byTab) {
       entries.sort((a, b) => (a.entered_at || 0) - (b.entered_at || 0));
-      const firstUrl = entries[0]?.url || '—';
+      const firstUrl = entries[0]?.url || '-';
       const bars = entries.map((entry) => {
         const start = entry.entered_at ?? t0;
         const end = entry.left_at ?? t1;
@@ -644,7 +644,7 @@
       }).join('');
       rows.push(`
         <div class="tab-row">
-          <div class="tab-label" title="tab ${escapeHTML(String(tabId))} — ${escapeHTML(firstUrl)}">#${escapeHTML(String(tabId))} ${escapeHTML(firstUrl)}</div>
+          <div class="tab-label" title="tab ${escapeHTML(String(tabId))} - ${escapeHTML(firstUrl)}">#${escapeHTML(String(tabId))} ${escapeHTML(firstUrl)}</div>
           <div class="tab-track">${bars}</div>
         </div>
       `);

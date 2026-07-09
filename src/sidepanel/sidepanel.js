@@ -105,7 +105,7 @@ function escapeHTML(str) {
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Error display — persistent, copyable
+// Error display: persistent, copyable
 // ───────────────────────────────────────────────────────────────────────
 function formatError(err) {
   if (!err) return '';
@@ -288,7 +288,7 @@ async function ensureMicPermission() {
     active: true,
   });
   throw new Error(
-    'Microphone permission not granted yet. A new tab was opened to grant access — after it closes, click "Start recording" again.'
+    'Microphone permission not granted yet. A new tab was opened to grant access; after it closes, click "Start recording" again.'
   );
 }
 
@@ -311,7 +311,7 @@ function renderProjectUI() {
   projectSelect.innerHTML = '';
   const none = document.createElement('option');
   none.value = '';
-  none.textContent = '— no project (download as zip) —';
+  none.textContent = '- no project (download as zip) -';
   projectSelect.appendChild(none);
   for (const p of projectState.list) {
     const opt = document.createElement('option');
@@ -330,9 +330,9 @@ function renderProjectUI() {
     projectPermDot.classList.remove('granted', 'prompt', 'denied');
     projectPermDot.classList.add(projectState.permission);
     projectPermDot.title = ({
-      granted: 'Folder access granted — recording will save here',
+      granted: 'Folder access granted; recording will save here',
       prompt: 'Folder access will be requested on Start',
-      denied: 'Folder access denied — Start will fall back to zip download',
+      denied: 'Folder access denied; Start will fall back to zip download',
     })[projectState.permission] || '';
     stopBtn.textContent = `Stop & save to ${ap.name}`;
   } else {
@@ -469,7 +469,7 @@ projectRemoveBtn.addEventListener('click', async () => {
 startBtn.addEventListener('click', async () => {
   startBtn.disabled = true;
   try {
-    // Folder permission FIRST — ensureMicPermission may open a tab, which
+    // Folder permission FIRST: ensureMicPermission may open a tab, which
     // consumes the click's user-gesture token and would make a later
     // requestPermission() prompt fail.
     const ap = activeProject();
@@ -479,7 +479,7 @@ startBtn.addEventListener('click', async () => {
       renderProjectUI();
       if (state !== 'granted') {
         showProjectBanner(
-          `Can't write to "${ap.name}" folder — permission ${state === 'denied' ? 'denied' : 'not granted'}. Recording will save as a zip download instead.`,
+          `Can't write to "${ap.name}" folder: permission ${state === 'denied' ? 'denied' : 'not granted'}. Recording will save as a zip download instead.`,
         );
       } else {
         hideProjectBanner();
@@ -561,7 +561,7 @@ stopBtn.addEventListener('click', async () => {
 
     if (res?.target === 'project') {
       if (res.error) {
-        // Write failed inside the SW — trigger a zip download fallback.
+        // Write failed inside the SW; trigger a zip download fallback.
         showPostStopBanner(
           `Couldn't write to "${ap.name}" folder: ${res.error.message}. Falling back to zip download.`,
           [{
@@ -644,7 +644,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key !== 'Enter' || !(ev.metaKey || ev.ctrlKey)) return;
   if (activePanel.classList.contains('hidden')) return; // not recording
   const active = document.activeElement;
-  if (active === noteTextInput) return; // notes are intentional — don't hijack
+  if (active === noteTextInput) return; // notes are intentional; don't hijack
   ev.preventDefault();
   const fromField = active === stepLabelInput ? stepLabelInput.value : '';
   sendMarker(fromField);
@@ -676,10 +676,10 @@ function renderMeter(s) {
   if (level < 0.02) {
     if (!lowMicSince) lowMicSince = now;
     const silentMs = now - lowMicSince;
-    meterWarning.textContent = silentMs > 5000 ? 'no signal — mic muted?' : (silentMs > 2000 ? 'silent…' : '');
+    meterWarning.textContent = silentMs > 5000 ? 'no signal, mic muted?' : (silentMs > 2000 ? 'silent…' : '');
   } else {
     lowMicSince = 0;
-    meterWarning.textContent = level > 0.9 ? 'hot — reduce input' : '';
+    meterWarning.textContent = level > 0.9 ? 'hot, reduce input' : '';
   }
 }
 
@@ -696,7 +696,7 @@ function renderTimer(s) {
   timerEl.textContent = fmt(wall);
   const max = s.maxMs ?? (10 * 60 * 1000);
   const warn = s.warnMs ?? (8 * 60 * 1000);
-  // Freeze active-time tick while paused OR waiting — the SW already excludes
+  // Freeze active-time tick while paused OR waiting: the SW already excludes
   // both from activeMs, so local interpolation should also stop.
   const activeMs = (s.paused || s.waiting)
     ? (s.activeMs ?? 0)
@@ -834,7 +834,7 @@ function summaryHTML(e) {
     case 'timeout':
       return `<span>⏱ time limit reached · ${Math.round((e.limit_ms || 0) / 60000)}min cap</span>`;
     case 'network': {
-      const status = e.status == null ? '—' : String(e.status);
+      const status = e.status == null ? '-' : String(e.status);
       const method = escapeHTML(e.method || '?');
       const url = escapeHTML(e.url || '');
       const dur = e.duration_ms != null ? `<span class="muted"> ${Math.round(e.duration_ms)}ms</span>` : '';

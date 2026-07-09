@@ -69,7 +69,7 @@ async function run() {
     console.log('[watch] bundling; edit src/** to rebuild');
   } else {
     await Promise.all([build(esmOpts), build(iifeOpts)]);
-    console.log('[build] dist/ ready — load unpacked in chrome://extensions');
+    console.log('[build] dist/ ready: load unpacked in chrome://extensions');
   }
 }
 

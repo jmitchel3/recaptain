@@ -140,7 +140,7 @@ test('privacy helpers return safe defaults for unsupported inputs', () => {
   assert.equal(scrubCssPath(null), null);
 });
 
-// Minimal DOM element stub for shouldMaskField — the function only reaches
+// Minimal DOM element stub for shouldMaskField: the function only reaches
 // for a handful of properties. Pass through attrs via getAttribute.
 function makeEl(opts) {
   let classList;
@@ -170,7 +170,7 @@ function makeEl(opts) {
     return null;
   };
   el.hasAttribute = (n) => !!(el.attrs && n in el.attrs);
-  // Minimal closest(selector) — walks up the stub chain. Only supports the
+  // Minimal closest(selector): walks up the stub chain. Only supports the
   // subset of selectors in REDACT_SELECTOR (comma list of `.class`,
   // `[attr]`, `[attr=value]`). Good enough for shouldRedactElement.
   el.closest = (selector) => {

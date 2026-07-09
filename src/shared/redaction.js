@@ -2,7 +2,7 @@
 //
 //   - collectRedactRects (page-side): walks the DOM, returns CSS-pixel rects
 //     for every element that should be hidden in a screenshot. Runs before
-//     each captureVisibleTab — needs to be cheap.
+//     each captureVisibleTab; needs to be cheap.
 //   - applyRedactionToBitmap (SW-side): takes an ImageBitmap + rects and
 //     returns an OffscreenCanvas with the rects painted over (solid fill or
 //     blur). The caller encodes the result.
@@ -16,7 +16,7 @@ import { REDACT_SELECTOR, shouldMaskField } from './privacy.js';
 
 // Walk the DOM and return CSS-pixel rects for every element that should be
 // obscured in the next screenshot. Only elements intersecting the viewport
-// are included — anything offscreen is the SW's problem to clip anyway and
+// are included; anything offscreen is the SW's problem to clip anyway and
 // we'd be wasting bytes shipping rects for it.
 //
 // `reason` is a short human-readable tag ('data-private', 'fs-mask',
@@ -77,7 +77,7 @@ export function collectRedactRects() {
 }
 
 // Derive a short reason label from whichever selector tagged the element.
-// Cheap — only runs once per flagged element.
+// Cheap: only runs once per flagged element.
 function reasonForElement(el) {
   if (el.hasAttribute?.('data-recaptain-mask') || el.classList?.contains?.('recaptain-mask')) return 'recaptain-mask';
   if (el.hasAttribute?.('data-sensitive')) return 'data-sensitive';
@@ -105,7 +105,7 @@ function fieldReason(el) {
 // --- service-worker-side ------------------------------------------------
 
 // Paint `rects` over `imageBitmap` and return the resulting OffscreenCanvas.
-// The caller is responsible for encoding (convertToBlob) — we return the
+// The caller is responsible for encoding (convertToBlob); we return the
 // canvas so the caller can chain multiple passes (thumbnail, JPEG) without
 // re-decoding.
 //
