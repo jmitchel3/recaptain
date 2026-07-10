@@ -32,7 +32,10 @@ const captureNetworkInput = $('capture-network');
 const captureNetworkBodyInput = $('capture-network-body');
 
 const startBtn = $('start');
-const scopeDot = $('scope-dot');
+const accessSection = $('access-section');
+const accessWhyHost = $('access-why-host');
+const featuresSection = $('features-section');
+const featuresPill = $('features-pill');
 const scopeText = $('scope-text');
 const scopeRevoke = $('scope-revoke');
 const grantCurrentAccessBtn = $('grant-current-access');
@@ -48,7 +51,6 @@ const accessAllSitesNote = $('access-allsites-note');
 const accessFeedback = $('access-feedback');
 const featuresUngranted = $('features-ungranted');
 const featuresGranted = $('features-granted');
-const featuresDot = $('features-dot');
 const revokeAllSitesBtn = $('revoke-all-sites');
 const stopBtn = $('stop');
 const pauseBtn = $('pause');
@@ -615,9 +617,13 @@ function renderCaptureConfig() {
   followTabsInput.disabled = !configReady || pending;
 
   const hasAllSites = accessState.hasAllSites;
-  featuresDot.classList.toggle('granted', hasAllSites);
+  featuresSection.dataset.state = hasAllSites ? 'granted' : 'ungranted';
+  featuresPill.textContent = hasAllSites ? 'on' : 'all sites';
   featuresUngranted.classList.toggle('hidden', hasAllSites);
   featuresGranted.classList.toggle('hidden', !hasAllSites);
+  // Auto-open the disclosure once granted so the toggles are visible; leave the
+  // user's manual open/closed state alone when ungranted.
+  if (hasAllSites) featuresSection.open = true;
   grantAccessBtn.disabled = accessInteractionPending();
   revokeAllSitesBtn.disabled = accessInteractionPending();
   renderStartAvailability();
@@ -659,28 +665,30 @@ function renderGrantedOrigins() {
   accessAllSitesNote.classList.toggle('hidden', !hasAllSites);
 }
 
-function renderAccessUI() {
-  scopeDot.classList.remove('granted', 'restricted');
+// Short status word shown in the header pill; the accent bar color is driven by
+// the data-state on the card.
+function setAccessState(state, pill) {
+  accessSection.dataset.state = state;
+  scopeText.textContent = pill;
+}
 
+function renderAccessUI() {
   if (accessState.loading) {
-    scopeText.textContent = 'checking site access...';
+    setAccessState('loading', 'checking');
     accessWhy.classList.remove('hidden');
     accessGranted.classList.add('hidden');
     accessRestricted.classList.add('hidden');
-    grantCurrentAccessBtn.textContent = 'Checking current site...';
+    accessWhyHost.textContent = 'this site';
+    grantCurrentAccessBtn.textContent = 'Grant access';
     grantCurrentAccessBtn.disabled = true;
   } else if (!accessState.site?.pattern) {
-    scopeDot.classList.add('restricted');
-    scopeText.textContent = 'Site access: unavailable on this page';
+    setAccessState('restricted', 'unavailable');
     accessWhy.classList.add('hidden');
     accessGranted.classList.add('hidden');
     accessRestricted.classList.remove('hidden');
     accessRestrictedCopy.textContent = accessState.site?.reason || 'Site access is unavailable on this page.';
   } else if (accessState.currentGranted) {
-    scopeDot.classList.add('granted');
-    scopeText.textContent = accessState.hasAllSites
-      ? `Site access: ${accessState.site.host} via all sites`
-      : `Site access: ${accessState.site.host} granted`;
+    setAccessState('granted', accessState.hasAllSites ? 'all sites' : 'granted');
     accessWhy.classList.add('hidden');
     accessGranted.classList.remove('hidden');
     accessRestricted.classList.add('hidden');
@@ -689,18 +697,18 @@ function renderAccessUI() {
       : `${accessState.site.host} is ready to record.`;
 
     // Per-site removal only when this site has its OWN grant. Under all-sites,
-    // removal happens via "Revoke all-sites access" in the features box.
+    // removal happens via "Revoke" in the features box.
     const perSiteGrant = !accessState.hasAllSites
       && accessState.grantedOrigins.includes(accessState.site.pattern);
     scopeRevoke.classList.toggle('hidden', !perSiteGrant);
     scopeRevoke.disabled = accessInteractionPending();
-    scopeRevoke.textContent = `Remove access to ${accessState.site.host}`;
   } else {
-    scopeText.textContent = `Site access: ${accessState.site.host} not granted`;
+    setAccessState('ungranted', 'not granted');
     accessWhy.classList.remove('hidden');
     accessGranted.classList.add('hidden');
     accessRestricted.classList.add('hidden');
-    grantCurrentAccessBtn.textContent = `Grant access to ${accessState.site.host}`;
+    accessWhyHost.textContent = accessState.site.host;
+    grantCurrentAccessBtn.textContent = `Grant ${accessState.site.host}`;
     grantCurrentAccessBtn.disabled = accessInteractionPending();
   }
 
