@@ -324,6 +324,7 @@ async function persistConfig(patch, successMessage) {
   } finally {
     configWritePending = false;
     renderDenylist();
+    renderRecordMode();
   }
 }
 
@@ -506,6 +507,7 @@ function subscribeToConfig() {
       config = normalizeConfig(next);
       configReady = true;
       renderDenylist();
+      renderRecordMode();
     });
   } catch {
     unsubscribeConfig = null;
@@ -573,6 +575,43 @@ if (micGrant) {
   });
 }
 
+// ── Record mode ────────────────────────────────────────────────────────
+const modeAllowed = $('mode-allowed');
+const modeAll = $('mode-all');
+const modeCopy = $('mode-copy');
+
+function renderRecordMode() {
+  if (!modeAllowed) return;
+  const all = config.recordMode === 'all';
+  modeAllowed.classList.toggle('active', !all);
+  modeAll.classList.toggle('active', all);
+  modeAllowed.setAttribute('aria-pressed', String(!all));
+  modeAll.setAttribute('aria-pressed', String(all));
+  modeCopy.textContent = all
+    ? 'Recording every site (needs all-sites access above), except denied sites.'
+    : 'Recording only the allowed sites below, except denied sites.';
+}
+
+if (modeAllowed && modeAll) {
+  modeAllowed.addEventListener('click', async () => {
+    if (config.recordMode !== 'all') return;
+    await persistConfig({ recordMode: 'allowed' }, 'Record mode set to only allowed sites.');
+    renderRecordMode();
+  });
+  modeAll.addEventListener('click', async () => {
+    if (config.recordMode === 'all') return;
+    let has = false;
+    try { has = await permissionsApi.contains(ALL_URLS); } catch {}
+    if (!has) {
+      try { has = await permissionsApi.request(ALL_URLS); } catch {}
+      if (!has) { showPageStatus('All-sites access is required for All-sites mode.', 'warn'); return; }
+    }
+    await persistConfig({ recordMode: 'all' }, 'Record mode set to all sites.');
+    renderRecordMode();
+    renderGrants();
+  });
+}
+
 // ── Policy export / import ─────────────────────────────────────────────
 const policyExport = $('policy-export');
 const policyImport = $('policy-import');
@@ -631,3 +670,4 @@ if (policyExport && policyImport && policyFile) {
 registerPermissionListeners();
 subscribeToConfig();
 await Promise.all([refreshConfig(), refreshPermissions(), renderGrants()]);
+renderRecordMode();

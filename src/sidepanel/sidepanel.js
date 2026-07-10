@@ -3,7 +3,7 @@ import {
   queryPermission, requestPermission, pickDirectory,
 } from './projects.js';
 import {
-  getConfig, setConfig, onConfigChanged, DEFAULT_CONFIG, BUILTIN_DENYLIST,
+  getConfig, setConfig, onConfigChanged, DEFAULT_CONFIG,
 } from '../shared/access-config.js';
 import { canonicalize, isValidPattern, compileMatcher } from '../shared/match-patterns.js';
 
@@ -33,25 +33,19 @@ const captureNetworkBodyInput = $('capture-network-body');
 const startBtn = $('start');
 const accessSection = $('access-section');
 const accessWhyHost = $('access-why-host');
-const modeAllowed = $('mode-allowed');
-const modeAll = $('mode-all');
-const accessAllmode = $('access-allmode');
-const allNeedsGrant = $('all-needs-grant');
+const modeSummary = $('mode-summary');
 const scopeText = $('scope-text');
 const scopeRevoke = $('scope-revoke');
 const grantCurrentAccessBtn = $('grant-current-access');
-const grantAccessBtn = $('grant-access');
 const accessWhy = $('access-why');
 const accessGranted = $('access-granted');
 const accessRestricted = $('access-restricted');
 const accessRestrictedCopy = $('access-restricted-copy');
 const accessGrantedCopy = $('access-granted-copy');
-const accessAllowlistEl = $('access-allowlist');
-const accessOrigins = $('access-origins');
-const accessEmpty = $('access-empty');
 const accessFeedback = $('access-feedback');
 const captureHint = $('capture-hint');
 const quickGrantBtn = $('quick-grant');
+const manageAccessBtn = $('manage-access');
 function openPermissionsPage() {
   try { chrome.runtime.openOptionsPage(); } catch {}
 }
@@ -112,25 +106,9 @@ function renderDormant() {
 }
 
 dormantGrant.addEventListener('click', () => { grantCurrentSite(); });
-const allowlistEdit = $('allowlist-edit');
-const allowlistMore = $('allowlist-more');
-const allowlistEditor = $('allowlist-editor');
-const allowlistText = $('allowlist-text');
-const allowlistSave = $('allowlist-save');
-const allowlistCancel = $('allowlist-cancel');
-const denylistOrigins = $('denylist-origins');
-const denylistEdit = $('denylist-edit');
-const denylistMore = $('denylist-more');
-const denylistEditor = $('denylist-editor');
-const denylistText = $('denylist-text');
-const denylistSave = $('denylist-save');
-const denylistReset = $('denylist-reset');
-const denylistCancel = $('denylist-cancel');
+manageAccessBtn.addEventListener('click', (e) => { e.preventDefault(); openPermissionsPage(); });
 const stopBtn = $('stop');
 
-const LIST_TRUNCATE = 4;
-let allowlistExpanded = false;
-let denylistExpanded = false;
 const pauseBtn = $('pause');
 const markWaitingBtn = $('mark-waiting');
 const pausedBanner = $('paused-banner');
@@ -578,7 +556,6 @@ projectRemoveBtn.addEventListener('click', async () => {
 // Site access and broad-capability config
 // ───────────────────────────────────────────────────────────────────────
 const ALL_SITES_PATTERN = '<all_urls>';
-const ALL_SITES_PERMISSION = { origins: [ALL_SITES_PATTERN] };
 const WEB_PROTOCOLS = new Set(['http:', 'https:']);
 const RESTRICTED_PROTOCOLS = new Set([
   'about:', 'chrome:', 'chrome-extension:', 'view-source:',
@@ -589,7 +566,6 @@ let configReady = false;
 let configTogglePending = null;
 let configToggleDesired = null;
 let currentGrantPending = false;
-let allSitesGrantPending = false;
 let startPending = false;
 let accessRefreshSequence = 0;
 
@@ -672,7 +648,6 @@ async function getGrantedOrigins() {
 function accessInteractionPending() {
   return Boolean(
     currentGrantPending
-    || allSitesGrantPending
     || configTogglePending
     || startPending
   );
@@ -701,71 +676,13 @@ function renderCaptureConfig() {
   followTabsInput.checked = configTogglePending === 'followTabs'
     ? Boolean(configToggleDesired)
     : Boolean(accessConfig.followTabs);
-  // Toggles stay clickable without all-sites; enabling one requests it. The hint
-  // just explains why the prompt appears.
+  // Toggles are plain prefs; they never prompt. The hint links to Permissions
+  // when a broad pref is on without all-sites access.
   captureShotsInput.disabled = !configReady || pending;
   followTabsInput.disabled = !configReady || pending;
   const needsGrant = (accessConfig.captureShots || accessConfig.followTabs) && !accessState.hasAllSites;
   captureHint.classList.toggle('hidden', !needsGrant);
-  renderDenylist();
   renderStartAvailability();
-}
-
-function renderGrantedOrigins() {
-  const perSite = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
-  const frag = document.createDocumentFragment();
-  for (const origin of perSite) {
-    const row = document.createElement('li');
-    row.className = 'access-origin';
-
-    const label = document.createElement('span');
-    label.className = 'access-origin-label';
-    label.textContent = origin;
-    label.title = origin;
-
-    const remove = document.createElement('button');
-    remove.className = 'btn access-remove';
-    remove.type = 'button';
-    remove.textContent = 'remove';
-    remove.disabled = accessInteractionPending();
-    remove.setAttribute('aria-label', `Remove ${origin}`);
-    remove.addEventListener('click', () => {
-      removeGrantedOrigin(origin, remove);
-    });
-
-    row.append(label, remove);
-    frag.appendChild(row);
-  }
-  accessOrigins.replaceChildren(frag);
-  accessEmpty.classList.toggle('hidden', perSite.length > 0);
-  const moreVisible = perSite.length > LIST_TRUNCATE;
-  allowlistMore.classList.toggle('hidden', !moreVisible);
-  allowlistMore.textContent = allowlistExpanded ? 'Show fewer' : `Show all ${perSite.length}`;
-}
-
-function renderList(container, patterns, expanded, mono = true) {
-  const frag = document.createDocumentFragment();
-  const limit = expanded ? patterns.length : LIST_TRUNCATE;
-  for (const p of patterns.slice(0, limit)) {
-    const row = document.createElement('li');
-    row.className = 'access-origin';
-    const label = document.createElement('span');
-    label.className = 'access-origin-label';
-    if (!mono) label.style.fontFamily = 'inherit';
-    label.textContent = p;
-    label.title = p;
-    row.appendChild(label);
-    frag.appendChild(row);
-  }
-  container.replaceChildren(frag);
-}
-
-function renderDenylist() {
-  const patterns = Array.isArray(accessConfig.denylist) ? accessConfig.denylist : [];
-  renderList(denylistOrigins, patterns, denylistExpanded);
-  const moreVisible = patterns.length > LIST_TRUNCATE;
-  denylistMore.classList.toggle('hidden', !moreVisible);
-  denylistMore.textContent = denylistExpanded ? 'Show fewer' : `Show all ${patterns.length}`;
 }
 
 // Short status word shown in the header pill; the accent bar color is driven by
@@ -778,27 +695,25 @@ function setAccessState(state, pill, allowQuickGrant = true) {
   quickGrantBtn.classList.toggle('hidden', !canQuickGrant);
 }
 
+// The sidebar shows only the CURRENT site's access + a link to the Permissions
+// page. Record mode, the allowlist, and the denylist are edited there.
 function renderAccessUI() {
   const allMode = accessConfig.recordMode === 'all';
-  modeAllowed.setAttribute('aria-pressed', String(!allMode));
-  modeAll.setAttribute('aria-pressed', String(allMode));
-  modeAllowed.classList.toggle('active', !allMode);
-  modeAll.classList.toggle('active', allMode);
-  modeAllowed.disabled = accessInteractionPending();
-  modeAll.disabled = accessInteractionPending();
-
-  accessAllmode.classList.toggle('hidden', !allMode);
-  accessAllowlistEl.classList.toggle('hidden', allMode);
   accessWhy.classList.add('hidden');
   accessGranted.classList.add('hidden');
   accessRestricted.classList.add('hidden');
 
   if (allMode) {
-    // "All sites" records everything and needs all-sites permission.
     const granted = accessState.hasAllSites;
     setAccessState(granted ? 'granted' : 'ungranted', granted ? 'all sites' : 'needs grant', false);
-    allNeedsGrant.classList.toggle('hidden', granted);
-    grantAccessBtn.disabled = accessInteractionPending();
+    if (granted) {
+      accessGranted.classList.remove('hidden');
+      accessGrantedCopy.textContent = 'Recording all sites (except denied).';
+      scopeRevoke.classList.add('hidden');
+    } else {
+      accessRestricted.classList.remove('hidden');
+      accessRestrictedCopy.textContent = 'All-sites mode needs all-sites access. Grant it in Permissions.';
+    }
   } else if (accessState.loading) {
     setAccessState('loading', 'checking');
     accessWhy.classList.remove('hidden');
@@ -827,7 +742,7 @@ function renderAccessUI() {
     grantCurrentAccessBtn.disabled = accessInteractionPending();
   }
 
-  renderGrantedOrigins();
+  modeSummary.textContent = allMode ? 'Recording all sites.' : 'Recording allowed sites only.';
   renderCaptureConfig();
   renderDormant();
 }
@@ -879,7 +794,6 @@ async function reconcileBroadCapabilities() {
   if (
     configTogglePending
     || currentGrantPending
-    || allSitesGrantPending
     || startPending
     || !configReady
     || accessState.loading
@@ -926,25 +840,6 @@ followTabsInput.addEventListener('change', () => {
   updateBroadCapability('followTabs', followTabsInput);
 });
 
-// Record-mode segmented control.
-modeAllowed.addEventListener('click', async () => {
-  if (accessConfig.recordMode !== 'all' || accessInteractionPending()) return;
-  accessConfig = await setConfig({ recordMode: 'allowed' });
-  await refreshAccessUI();
-});
-modeAll.addEventListener('click', async () => {
-  if (accessConfig.recordMode === 'all' || accessInteractionPending()) return;
-  // All-sites mode needs all-sites permission, granted on the Permissions page
-  // (not prompted from the sidebar).
-  if (!accessState.hasAllSites) {
-    setInlineFeedback(accessFeedback, 'All sites needs all-sites access. Grant it in Permissions, then choose All sites.');
-    try { chrome.runtime.openOptionsPage(); } catch {}
-    return;
-  }
-  accessConfig = await setConfig({ recordMode: 'all' });
-  await refreshAccessUI();
-});
-
 async function grantCurrentSite() {
   const site = accessState.site;
   if (!site?.pattern) return;
@@ -978,28 +873,6 @@ quickGrantBtn.addEventListener('click', (e) => {
   e.preventDefault();
   e.stopPropagation();
   grantCurrentSite();
-});
-
-// "Grant all-sites access" button shown in All-sites mode when not yet granted.
-grantAccessBtn.addEventListener('click', async () => {
-  allSitesGrantPending = true;
-  renderAccessUI();
-  setInlineFeedback(accessFeedback, '');
-  try {
-    // The request runs directly under this click's user gesture.
-    const granted = await chrome.permissions.request(ALL_SITES_PERMISSION);
-    setInlineFeedback(
-      accessFeedback,
-      granted ? 'All-sites access was granted.' : 'All-sites access was not granted.',
-      granted ? 'ok' : 'warn',
-    );
-  } catch (err) {
-    setInlineFeedback(accessFeedback, 'All-sites access could not be requested.');
-    await showError(err);
-  } finally {
-    allSitesGrantPending = false;
-    await refreshAccessUI();
-  }
 });
 
 async function removeGrantedOrigin(origin, button) {
@@ -1062,89 +935,6 @@ function refreshAccessForCurrentTab() {
   refreshAccessUI();
 }
 
-// ── Allowed-sites list: truncation + bulk textarea editor ──────────────
-allowlistMore.addEventListener('click', () => {
-  allowlistExpanded = !allowlistExpanded;
-  renderGrantedOrigins();
-});
-
-allowlistEdit.addEventListener('click', () => {
-  const perSite = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
-  allowlistText.value = perSite.join('\n');
-  allowlistEditor.classList.remove('hidden');
-  allowlistEdit.classList.add('hidden');
-  allowlistText.focus();
-});
-
-allowlistCancel.addEventListener('click', () => {
-  allowlistEditor.classList.add('hidden');
-  allowlistEdit.classList.remove('hidden');
-});
-
-allowlistSave.addEventListener('click', async () => {
-  const desired = [];
-  for (const line of allowlistText.value.split('\n').map((s) => s.trim()).filter(Boolean)) {
-    try { desired.push(canonicalize(line)); } catch { /* skip invalid line */ }
-  }
-  const desiredSet = new Set(desired);
-  const current = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
-  const toAdd = desired.filter((o) => !current.includes(o));
-  const toRemove = current.filter((o) => !desiredSet.has(o));
-
-  currentGrantPending = true;
-  renderAccessUI();
-  try {
-    // request must be the first awaited call so Chrome sees the Save gesture;
-    // one prompt covers every new origin.
-    if (toAdd.length) {
-      const granted = await chrome.permissions.request({ origins: toAdd });
-      if (!granted) setInlineFeedback(accessFeedback, 'New sites were not granted.');
-    }
-    if (toRemove.length) await chrome.permissions.remove({ origins: toRemove });
-    allowlistEditor.classList.add('hidden');
-    allowlistEdit.classList.remove('hidden');
-  } catch (err) {
-    setInlineFeedback(accessFeedback, 'The allowed sites could not be updated.');
-    await showError(err);
-  } finally {
-    currentGrantPending = false;
-    await refreshAccessUI();
-  }
-});
-
-// ── Denylist: truncation + bulk textarea editor (config only) ──────────
-denylistMore.addEventListener('click', () => {
-  denylistExpanded = !denylistExpanded;
-  renderDenylist();
-});
-
-denylistEdit.addEventListener('click', () => {
-  denylistText.value = (accessConfig.denylist || []).join('\n');
-  denylistEditor.classList.remove('hidden');
-  denylistEdit.classList.add('hidden');
-  denylistText.focus();
-});
-
-denylistCancel.addEventListener('click', () => {
-  denylistEditor.classList.add('hidden');
-  denylistEdit.classList.remove('hidden');
-});
-
-denylistSave.addEventListener('click', async () => {
-  const patterns = denylistText.value
-    .split('\n').map((s) => s.trim()).filter(Boolean)
-    .filter((p) => isValidPattern(p));
-  accessConfig = await setConfig({ denylist: patterns });
-  denylistEditor.classList.add('hidden');
-  denylistEdit.classList.remove('hidden');
-  renderDenylist();
-});
-
-denylistReset.addEventListener('click', async () => {
-  accessConfig = await setConfig({ denylist: [...BUILTIN_DENYLIST] });
-  denylistText.value = BUILTIN_DENYLIST.join('\n');
-  renderDenylist();
-});
 
 // ───────────────────────────────────────────────────────────────────────
 // Start / Stop

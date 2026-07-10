@@ -487,3 +487,12 @@ main {
 .grant-info strong { font-size: 14px; }
 .grant-info small { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .grant-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+
+/* Record mode */
+.record-mode-row { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+.record-mode-label { font-size: 13px; font-weight: 600; }
+.segmented { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); }
+.seg { padding: 6px 14px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.seg:hover:not(.active) { color: var(--fg); }
+.seg.active { background: var(--primary); color: var(--primary-fg); }
+#mode-copy { margin-top: 0; }

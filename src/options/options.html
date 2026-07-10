@@ -69,6 +69,15 @@
         These are Chrome's live host grants. Removing one stops Recaptain from accessing matching pages.
       </p>
 
+      <div class="record-mode-row">
+        <span class="record-mode-label">Record</span>
+        <div class="segmented" role="group" aria-label="Record mode">
+          <button type="button" id="mode-allowed" class="seg">Only allowed sites</button>
+          <button type="button" id="mode-all" class="seg">All sites</button>
+        </div>
+      </div>
+      <p class="section-copy" id="mode-copy"></p>
+
       <ul id="allowlist-list" class="pattern-list" aria-label="Granted origin patterns"></ul>
 
       <form id="allowlist-form" class="editor" novalidate>
