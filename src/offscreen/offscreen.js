@@ -117,11 +117,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg.type === 'mic:pause') { pause(); sendResponse({ ok: true }); return; }
       if (msg.type === 'mic:resume') { resume(); sendResponse({ ok: true }); return; }
       if (msg.type === 'bundle:blob-url') {
-        // bytes arrives as ArrayBuffer via structured clone over a long-lived
-        // port (the sendMessage path would force JSON + base64 bloat).
-        const { bytes, mime } = msg;
-        const u8 = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : new Uint8Array(bytes);
-        const { id, url } = createBundleBlobUrl(u8, mime);
+        // Bytes arrive base64-encoded: sendMessage JSON-serializes, which would
+        // silently drop a raw ArrayBuffer/Uint8Array to 0 bytes.
+        const bin = atob(msg.bytes_b64 || '');
+        const u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const { id, url } = createBundleBlobUrl(u8, msg.mime || 'application/zip');
         sendResponse({ ok: true, id, url });
         return;
       }

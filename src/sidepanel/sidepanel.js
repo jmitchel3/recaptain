@@ -792,43 +792,19 @@ async function refreshAccessUI() {
   accessState.hasAllSites = accessState.grantedOrigins.includes(ALL_SITES_PATTERN);
   accessState.currentGranted = currentGranted;
   renderAccessUI();
-  reconcileBroadCapabilities();
 }
 
 async function loadAccessConfig() {
   accessConfig = await getConfig();
   configReady = true;
   renderAccessUI();
-  reconcileBroadCapabilities();
 }
 
 onConfigChanged((next) => {
   accessConfig = next;
   configReady = true;
   renderAccessUI();
-  reconcileBroadCapabilities();
 });
-
-// If all-sites access disappears (revoked here or from chrome://extensions)
-// while a broad feature is still on in config, turn the feature off. The
-// features box hides the toggles without all-sites, so this only fires for
-// out-of-band revocation.
-async function reconcileBroadCapabilities() {
-  if (
-    configTogglePending
-    || currentGrantPending
-    || startPending
-    || !configReady
-    || accessState.loading
-    || !accessState.permissionsKnown
-    || accessState.hasAllSites
-    || (!accessConfig.captureShots && !accessConfig.followTabs)
-  ) return;
-
-  accessConfig = await setConfig({ captureShots: false, followTabs: false });
-  configReady = true;
-  renderCaptureConfig();
-}
 
 // Screenshots and follow-tabs are plain preferences: toggling never prompts.
 // They need all-sites access to take effect, which is granted on the Permissions

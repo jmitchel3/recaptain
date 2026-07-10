@@ -468,6 +468,19 @@ async function getActiveTab() {
   return tab;
 }
 
+// chrome.runtime.sendMessage JSON-serializes its payload, which turns an
+// ArrayBuffer/Uint8Array into an empty object (0 bytes). To hand bundle bytes to
+// the offscreen doc intact we base64-encode them (chunked to avoid a stack
+// overflow on large inputs) and decode on the other side.
+function bytesToBase64(u8) {
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < u8.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
 // Decode a data URL into its raw bytes. In-memory this is 33% smaller than
 // keeping the base64 string around, which matters across a long recording.
 function dataUrlToBytes(dataUrl) {
@@ -1368,16 +1381,12 @@ async function downloadBundle({ zipped, manifest }) {
   // which creates a blob URL and hands it back. This sidesteps the ~200MB
   // ceiling of the data: URL path we used to take.
   await ensureOffscreen({ needMic: false });
-  const buf = zipped.buffer.slice(
-    zipped.byteOffset,
-    zipped.byteOffset + zipped.byteLength,
-  );
   let blobId = null;
   try {
     const res = await chrome.runtime.sendMessage({
       target: 'offscreen',
       type: 'bundle:blob-url',
-      bytes: buf,
+      bytes_b64: bytesToBase64(zipped),
       mime: 'application/zip',
     });
     if (!res?.ok) throw new Error(res?.error || 'bundle blob url failed');
