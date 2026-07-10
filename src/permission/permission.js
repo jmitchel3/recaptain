@@ -9,6 +9,16 @@ function setStatus(text, kind) {
   status.className = 'status' + (kind ? ' ' + kind : '');
 }
 
+// window.close() is ignored for tabs opened via chrome.tabs.create, so close
+// this tab through the tabs API (with a window.close fallback).
+async function closeSelf() {
+  try {
+    const tab = await chrome.tabs.getCurrent();
+    if (tab?.id != null) { await chrome.tabs.remove(tab.id); return; }
+  } catch {}
+  try { window.close(); } catch {}
+}
+
 async function requestMic() {
   btn.disabled = true;
   setStatus('Requesting microphone access…', null);
@@ -19,7 +29,7 @@ async function requestMic() {
     try {
       await chrome.runtime.sendMessage({ type: 'permission:granted:mic' });
     } catch {}
-    setTimeout(() => window.close(), 700);
+    closeSelf();
   } catch (err) {
     btn.disabled = false;
     const detail = [
@@ -41,7 +51,7 @@ btn.addEventListener('click', requestMic);
     if (status.state === 'granted') {
       setStatus('Already granted. Closing…', 'ok');
       try { await chrome.runtime.sendMessage({ type: 'permission:granted:mic' }); } catch {}
-      setTimeout(() => window.close(), 500);
+      closeSelf();
       return;
     }
   } catch {}

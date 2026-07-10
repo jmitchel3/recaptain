@@ -27,7 +27,6 @@ const micManage = $('mic-manage');
 
 const captureShotsInput = $('capture-shots');
 const followTabsInput = $('follow-tabs');
-const captureAccessFeedback = $('capture-access-feedback');
 const captureNetworkInput = $('capture-network');
 const captureNetworkBodyInput = $('capture-network-body');
 
@@ -53,10 +52,13 @@ const accessEmpty = $('access-empty');
 const accessFeedback = $('access-feedback');
 const captureHint = $('capture-hint');
 const quickGrantBtn = $('quick-grant');
-const openOptionsBtn = $('open-options');
-openOptionsBtn.addEventListener('click', () => {
+function openPermissionsPage() {
   try { chrome.runtime.openOptionsPage(); } catch {}
-});
+}
+const openOptionsBtn = $('open-options');
+openOptionsBtn.addEventListener('click', openPermissionsPage);
+const captureHintLink = $('capture-hint-link');
+captureHintLink.addEventListener('click', (e) => { e.preventDefault(); openPermissionsPage(); });
 const dormantBanner = $('dormant-banner');
 const dormantText = $('dormant-text');
 const dormantGrant = $('dormant-grant');
@@ -357,6 +359,9 @@ async function refreshMicStatus() {
   if (s === 'granted') {
     micDot.classList.add('granted');
     micText.textContent = 'permission granted';
+    // Clear the "grant mic then try again" notice once it is actually granted
+    // (this fires via the permission-state onchange after the grant tab closes).
+    clearError();
     micManage.textContent = 'revoke';
   } else if (s === 'denied') {
     micDot.classList.add('denied');
@@ -376,6 +381,13 @@ micManage.addEventListener('click', (e) => {
   e.preventDefault();
   chrome.tabs.create({ url: 'chrome://settings/content/microphone' });
 });
+
+// Returning to the panel (e.g. after granting mic or all-sites access in a tab)
+// rechecks permissions so stale notices clear without a manual retry.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { refreshMicStatus(); refreshAccessUI(); }
+});
+window.addEventListener('focus', () => { refreshMicStatus(); refreshAccessUI(); });
 
 async function ensureMicPermission() {
   try {
@@ -693,7 +705,8 @@ function renderCaptureConfig() {
   // just explains why the prompt appears.
   captureShotsInput.disabled = !configReady || pending;
   followTabsInput.disabled = !configReady || pending;
-  captureHint.classList.toggle('hidden', accessState.hasAllSites);
+  const needsGrant = (accessConfig.captureShots || accessConfig.followTabs) && !accessState.hasAllSites;
+  captureHint.classList.toggle('hidden', !needsGrant);
   renderDenylist();
   renderStartAvailability();
 }
@@ -880,8 +893,9 @@ async function reconcileBroadCapabilities() {
   renderCaptureConfig();
 }
 
-// Screenshots and follow-tabs need all-sites permission; enabling one requests
-// it (under this change's user gesture) without changing the record mode.
+// Screenshots and follow-tabs are plain preferences: toggling never prompts.
+// They need all-sites access to take effect, which is granted on the Permissions
+// page; the capture hint points there when a pref is on without the grant.
 async function updateBroadCapability(key, input) {
   if (configTogglePending) {
     input.checked = Boolean(accessConfig[key]);
@@ -892,27 +906,16 @@ async function updateBroadCapability(key, input) {
   configTogglePending = key;
   configToggleDesired = desired;
   renderCaptureConfig();
-
   try {
-    if (desired && !accessState.hasAllSites) {
-      const granted = await chrome.permissions.request(ALL_SITES_PERMISSION);
-      if (!granted) {
-        input.checked = false;
-        setInlineFeedback(captureAccessFeedback, 'That needs all-sites access, which was not granted.');
-        return;
-      }
-    }
     accessConfig = await setConfig({ [key]: desired });
     configReady = true;
-    setInlineFeedback(captureAccessFeedback, '');
   } catch (err) {
     input.checked = previous;
-    setInlineFeedback(captureAccessFeedback, 'That setting could not be updated.');
     await showError(err);
   } finally {
     configTogglePending = null;
     configToggleDesired = null;
-    await refreshAccessUI();
+    renderCaptureConfig();
   }
 }
 
@@ -931,14 +934,12 @@ modeAllowed.addEventListener('click', async () => {
 });
 modeAll.addEventListener('click', async () => {
   if (accessConfig.recordMode === 'all' || accessInteractionPending()) return;
-  // All-sites mode needs all-sites permission; request it under this gesture.
+  // All-sites mode needs all-sites permission, granted on the Permissions page
+  // (not prompted from the sidebar).
   if (!accessState.hasAllSites) {
-    let granted = false;
-    try { granted = await chrome.permissions.request(ALL_SITES_PERMISSION); } catch {}
-    if (!granted) {
-      setInlineFeedback(accessFeedback, 'All-sites access was not granted, so record mode stayed on Only allowed.');
-      return;
-    }
+    setInlineFeedback(accessFeedback, 'All sites needs all-sites access. Grant it in Permissions, then choose All sites.');
+    try { chrome.runtime.openOptionsPage(); } catch {}
+    return;
   }
   accessConfig = await setConfig({ recordMode: 'all' });
   await refreshAccessUI();

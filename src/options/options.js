@@ -478,6 +478,7 @@ denylistInput.addEventListener('input', () => {
 
 function handlePermissionChange() {
   refreshPermissions();
+  renderGrants();
 }
 
 function registerPermissionListeners() {
@@ -517,6 +518,60 @@ window.addEventListener('beforeunload', () => {
   }
   unregisterPermissionListeners();
 });
+
+// ── Access grants (all-sites + microphone) ─────────────────────────────
+const ALL_URLS = { origins: ['<all_urls>'] };
+const allsitesState = $('allsites-state');
+const allsitesGrant = $('allsites-grant');
+const allsitesRevoke = $('allsites-revoke');
+const micState = $('mic-state');
+const micGrant = $('mic-grant');
+
+async function renderGrants() {
+  if (allsitesState) {
+    let hasAll = false;
+    try { hasAll = await permissionsApi.contains(ALL_URLS); } catch {}
+    allsitesState.textContent = hasAll ? 'Granted' : 'Not granted';
+    allsitesGrant.hidden = hasAll;
+    allsitesGrant.disabled = !permissionsApi;
+    allsitesRevoke.hidden = !hasAll;
+  }
+  if (micState) {
+    let micS = 'unknown';
+    try {
+      const p = await navigator.permissions.query({ name: 'microphone' });
+      micS = p.state;
+      p.onchange = () => renderGrants();
+    } catch {}
+    micState.textContent = micS === 'granted' ? 'Granted' : (micS === 'denied' ? 'Blocked (unblock in browser settings)' : 'Not granted');
+    micGrant.hidden = micS === 'granted';
+  }
+}
+
+if (allsitesGrant && permissionsApi) {
+  allsitesGrant.addEventListener('click', async () => {
+    try { await permissionsApi.request(ALL_URLS); } catch {}
+    renderGrants();
+  });
+  allsitesRevoke.addEventListener('click', async () => {
+    try { await permissionsApi.remove(ALL_URLS); } catch {}
+    // Broad capabilities are meaningless without all-sites; turn them off.
+    try { await persistConfig({ captureShots: false, followTabs: false, recordMode: 'allowed' }); } catch {}
+    renderGrants();
+  });
+}
+if (micGrant) {
+  micGrant.addEventListener('click', async () => {
+    micState.textContent = 'Requesting...';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch {
+      micState.textContent = 'Blocked or dismissed';
+    }
+    renderGrants();
+  });
+}
 
 // ── Policy export / import ─────────────────────────────────────────────
 const policyExport = $('policy-export');
@@ -575,4 +630,4 @@ if (policyExport && policyImport && policyFile) {
 
 registerPermissionListeners();
 subscribeToConfig();
-await Promise.all([refreshConfig(), refreshPermissions()]);
+await Promise.all([refreshConfig(), refreshPermissions(), renderGrants()]);

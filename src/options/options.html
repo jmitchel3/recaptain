@@ -11,8 +11,8 @@
     <div class="top-inner">
       <div>
         <p class="eyebrow">Recaptain</p>
-        <h1>Access settings</h1>
-        <p class="intro">Choose where Recaptain can record and where it must stay out.</p>
+        <h1>Permissions &amp; policy</h1>
+        <p class="intro">Grant what Recaptain needs, choose where it records, and share the policy.</p>
       </div>
       <span class="privacy-badge">Local and private</span>
     </div>
@@ -20,6 +20,42 @@
 
   <main>
     <div id="page-status" class="page-status" role="status" aria-live="polite" hidden></div>
+
+    <section class="card" aria-labelledby="grants-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Permissions</p>
+          <h2 id="grants-heading">Access grants</h2>
+        </div>
+      </div>
+      <p class="section-copy">
+        Granted here, once, and only what you choose. Nothing is captured unless a
+        recording is running.
+      </p>
+
+      <div class="grant-row">
+        <div class="grant-info">
+          <strong>All-sites access</strong>
+          <small id="allsites-state">Checking...</small>
+          <small class="grant-note">Enables screenshots, following across tabs, and All-sites record mode.</small>
+        </div>
+        <div class="grant-actions">
+          <button id="allsites-grant" type="button" class="primary" disabled>Grant</button>
+          <button id="allsites-revoke" type="button" hidden>Revoke</button>
+        </div>
+      </div>
+
+      <div class="grant-row">
+        <div class="grant-info">
+          <strong>Microphone</strong>
+          <small id="mic-state">Checking...</small>
+          <small class="grant-note">Records your narration. Audio stays in the bundle on your device.</small>
+        </div>
+        <div class="grant-actions">
+          <button id="mic-grant" type="button" class="primary">Grant</button>
+        </div>
+      </div>
+    </section>
 
     <section class="card" aria-labelledby="allowlist-heading">
       <div class="section-heading">

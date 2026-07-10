@@ -88,8 +88,8 @@
         <span>Follow across tabs</span>
       </label>
       <p class="capture-hint muted hidden" id="capture-hint">
-        Screenshots and following across tabs need all-sites access. Enabling
-        either asks for it.
+        These need all-sites access to work.
+        <a href="#" id="capture-hint-link" class="link">Grant it in Permissions</a>.
       </p>
       <p id="capture-access-feedback" class="capture-access-feedback hidden" role="status"></p>
 
@@ -105,9 +105,12 @@
           <svg class="features-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
         </summary>
         <div class="access-body">
-          <div class="segmented" role="group" aria-label="Record mode">
-            <button type="button" id="mode-allowed" class="seg" aria-pressed="true">Only allowed sites</button>
-            <button type="button" id="mode-all" class="seg" aria-pressed="false">All sites</button>
+          <div class="record-row">
+            <span class="micro-label">Record</span>
+            <div class="segmented" role="group" aria-label="Record mode">
+              <button type="button" id="mode-allowed" class="seg" aria-pressed="true">Allowed sites</button>
+              <button type="button" id="mode-all" class="seg" aria-pressed="false">All sites</button>
+            </div>
           </div>
 
           <div class="access-why" id="access-why">
