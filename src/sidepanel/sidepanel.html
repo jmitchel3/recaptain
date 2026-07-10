@@ -61,9 +61,19 @@
       </p>
 
       <label class="toggle">
-        <input id="capture-shots" type="checkbox" checked>
+        <input id="capture-shots" type="checkbox">
         <span>Capture screenshots</span>
       </label>
+
+      <label class="toggle">
+        <input id="follow-tabs" type="checkbox">
+        <span>Follow across tabs</span>
+      </label>
+      <p class="access-copy muted capture-access-copy">
+        Screenshots and following across tabs need access to all sites. Chrome
+        will ask for that access when you turn either option on.
+      </p>
+      <p id="capture-access-feedback" class="capture-access-feedback hidden" role="status"></p>
 
       <label class="toggle">
         <input id="capture-network" type="checkbox">
@@ -84,24 +94,48 @@
 
         <div class="access-why" id="access-why">
           <p class="access-copy">
-            To record a tab, Recaptain needs access to the sites you record. It
-            uses that access to capture clicks, screenshots, console, and network
-            activity <strong>only while a recording is running</strong>. Nothing
-            is ever sent off your device.
+            Recaptain needs access to this site to capture clicks, console, and
+            network activity <strong>only while a recording is running</strong>.
+            Granting one site does not give Recaptain access everywhere.
           </p>
-          <button id="grant-access" class="btn">Grant site access</button>
+          <button id="grant-current-access" class="primary access-primary" disabled>
+            Grant access to this site
+          </button>
         </div>
 
         <div class="access-granted hidden" id="access-granted">
+          <p class="access-copy" id="access-granted-copy"></p>
           <div class="access-actions">
-            <button id="scope-revoke" class="btn">Revoke site access</button>
+            <button id="scope-revoke" class="btn scope-revoke">Remove current grant</button>
           </div>
-          <p class="access-copy muted">
-            Revoke here anytime, or remove it from
-            <code>chrome://extensions</code> &rarr; Recaptain &rarr; Details
-            &rarr; Site access. Revoking stops all page access immediately.
+        </div>
+
+        <div class="access-restricted hidden" id="access-restricted">
+          <p class="access-copy" id="access-restricted-copy">
+            Site access is unavailable on this page.
           </p>
         </div>
+
+        <p id="access-feedback" class="access-feedback hidden" role="status"></p>
+
+        <div class="access-allowlist">
+          <div class="access-subhead">Granted sites</div>
+          <ul id="access-origins" class="access-origins"></ul>
+          <p id="access-empty" class="access-copy muted access-empty">No site access granted yet.</p>
+        </div>
+
+        <details class="access-advanced">
+          <summary>Advanced: all-sites access</summary>
+          <p class="access-copy muted">
+            Grant all-sites access for screenshots, following across tabs, or
+            recording many sites without separate prompts. Nothing is captured
+            unless a recording is running.
+          </p>
+          <button id="grant-access" class="btn grant-access">Grant site access</button>
+          <p id="all-sites-granted" class="access-copy all-sites-granted hidden">
+            All-sites access is granted. Remove it from the list above to revoke it.
+          </p>
+        </details>
       </div>
 
       <button id="start" class="primary">Start recording</button>
