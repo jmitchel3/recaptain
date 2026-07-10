@@ -29,6 +29,9 @@ const captureShotsInput = $('capture-shots');
 const followTabsInput = $('follow-tabs');
 const captureNetworkInput = $('capture-network');
 const captureNetworkBodyInput = $('capture-network-body');
+const captureShortcutsInput = $('capture-shortcuts');
+const captureSelectionInput = $('capture-selection');
+const captureGesturesInput = $('capture-gestures');
 
 const startBtn = $('start');
 const accessSection = $('access-section');
@@ -158,6 +161,9 @@ const MIC_DEVICE_STORAGE_KEY = 'micDeviceId';
 const ACTIVE_PROJECT_STORAGE_KEY = 'activeProjectName';
 const CAPTURE_NETWORK_STORAGE_KEY = 'captureNetwork';
 const CAPTURE_NETWORK_BODY_STORAGE_KEY = 'captureNetworkBody';
+const CAPTURE_SHORTCUTS_STORAGE_KEY = 'captureShortcuts';
+const CAPTURE_SELECTION_STORAGE_KEY = 'captureSelection';
+const CAPTURE_GESTURES_STORAGE_KEY = 'captureGestures';
 
 // ───────────────────────────────────────────────────────────────────────
 // Helpers
@@ -311,14 +317,31 @@ captureNetworkBodyInput.addEventListener('change', async () => {
   try { await chrome.storage.local.set({ [CAPTURE_NETWORK_BODY_STORAGE_KEY]: captureNetworkBodyInput.checked }); } catch {}
 });
 
+const captureToggleStore = new Map([
+  [captureShortcutsInput, CAPTURE_SHORTCUTS_STORAGE_KEY],
+  [captureSelectionInput, CAPTURE_SELECTION_STORAGE_KEY],
+  [captureGesturesInput, CAPTURE_GESTURES_STORAGE_KEY],
+]);
+for (const [input, key] of captureToggleStore) {
+  input.addEventListener('change', async () => {
+    try { await chrome.storage.local.set({ [key]: input.checked }); } catch {}
+  });
+}
+
 async function restoreCaptureSettings() {
   try {
     const got = await chrome.storage.local.get([
       CAPTURE_NETWORK_STORAGE_KEY,
       CAPTURE_NETWORK_BODY_STORAGE_KEY,
+      CAPTURE_SHORTCUTS_STORAGE_KEY,
+      CAPTURE_SELECTION_STORAGE_KEY,
+      CAPTURE_GESTURES_STORAGE_KEY,
     ]);
     if (typeof got[CAPTURE_NETWORK_STORAGE_KEY] === 'boolean') captureNetworkInput.checked = got[CAPTURE_NETWORK_STORAGE_KEY];
     if (typeof got[CAPTURE_NETWORK_BODY_STORAGE_KEY] === 'boolean') captureNetworkBodyInput.checked = got[CAPTURE_NETWORK_BODY_STORAGE_KEY];
+    if (typeof got[CAPTURE_SHORTCUTS_STORAGE_KEY] === 'boolean') captureShortcutsInput.checked = got[CAPTURE_SHORTCUTS_STORAGE_KEY];
+    if (typeof got[CAPTURE_SELECTION_STORAGE_KEY] === 'boolean') captureSelectionInput.checked = got[CAPTURE_SELECTION_STORAGE_KEY];
+    if (typeof got[CAPTURE_GESTURES_STORAGE_KEY] === 'boolean') captureGesturesInput.checked = got[CAPTURE_GESTURES_STORAGE_KEY];
   } catch {}
   updateNetworkBodyAvailability();
 }
@@ -1002,6 +1025,9 @@ startBtn.addEventListener('click', async () => {
       captureShots: Boolean(accessConfig.captureShots),
       captureNetwork: captureNetworkInput.checked,
       captureNetworkBody: captureNetworkInput.checked && captureNetworkBodyInput.checked,
+      captureShortcuts: captureShortcutsInput.checked,
+      captureSelection: captureSelectionInput.checked,
+      captureGestures: captureGesturesInput.checked,
     });
     const resErr = errFromResponse(res);
     if (resErr) throw resErr;
@@ -1368,6 +1394,15 @@ function summaryHTML(e) {
     }
     case 'landmark_snapshot':
       return `<span class="muted">landmark · ${escapeHTML(e.title || e.url || '')}</span>`;
+    case 'shortcut':
+      return `<span class="muted">⌨</span> <span>${escapeHTML(e.combo || e.key || '')}</span>`;
+    case 'selection': {
+      const who = e.target ? `<span class="muted">in ${escapeHTML(targetLabel(e.target))}</span> ` : '';
+      const body = e.is_masked ? `<span class="muted">[masked · ${e.length ?? 0} chars]</span>` : escapeHTML((e.text || '').slice(0, 120));
+      return `${who}<span class="muted">selected</span> ${body}`;
+    }
+    case 'highlight':
+      return `<span class="muted">◯ circled</span> ${escapeHTML(targetLabel(e.target))}`;
     default:
       return `<span class="muted">${escapeHTML(e.kind)}</span>`;
   }

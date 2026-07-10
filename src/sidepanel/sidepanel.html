@@ -79,6 +79,19 @@
         </label>
       </div>
 
+      <label class="toggle">
+        <input id="capture-shortcuts" type="checkbox" checked>
+        <span>Track keyboard shortcuts</span>
+      </label>
+      <label class="toggle">
+        <input id="capture-selection" type="checkbox" checked>
+        <span>Track text selection</span>
+      </label>
+      <label class="toggle">
+        <input id="capture-gestures" type="checkbox">
+        <span>Track lasso (circle an element)</span>
+      </label>
+
       <label class="toggle" id="capture-shots-row">
         <input id="capture-shots" type="checkbox">
         <span>Capture screenshots</span>
@@ -208,6 +221,9 @@
           <option value="change">changes</option>
           <option value="submit">submits</option>
           <option value="key">keys</option>
+          <option value="shortcut">shortcuts</option>
+          <option value="selection">selection</option>
+          <option value="highlight">highlight (lasso)</option>
           <option value="focus">focus</option>
           <option value="scroll">scroll</option>
           <option value="navigation">navigation</option>

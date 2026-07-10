@@ -45,6 +45,7 @@ const EVENT_KINDS = new Set([
   'network', 'assertion',
   'waiting_start', 'waiting_end',
   'landmark_snapshot',
+  'selection', 'highlight', 'shortcut',
 ]);
 
 const ACTIVITY_MAX = 5000;
@@ -78,6 +79,9 @@ const state = {
   redactionMode: 'black',  // 'black' | 'blur' | 'off', applied before screenshot encoding
   captureNetwork: false,   // operator toggle: capture fetch/XHR metadata
   captureNetworkBody: false, // sub-toggle: include short JSON response bodies
+  captureShortcuts: true,  // page-side: cmd/ctrl combos as `shortcut` events
+  captureSelection: true,  // page-side: text highlight as `selection` events
+  captureGestures: false,  // page-side: lasso/circle as `highlight` events
   waiting: false,          // between waiting_start and waiting_end, drives throttles
   waitingSince: null,      // Date.now() of current waiting window; null otherwise
   totalWaitingMs: 0,       // cumulative waiting time, closed on each waiting_end
@@ -137,6 +141,9 @@ function metaSnapshot() {
     redactionMode: state.redactionMode,
     captureNetwork: state.captureNetwork,
     captureNetworkBody: state.captureNetworkBody,
+    captureShortcuts: state.captureShortcuts,
+    captureSelection: state.captureSelection,
+    captureGestures: state.captureGestures,
     waiting: state.waiting,
     waitingSince: state.waitingSince,
     totalWaitingMs: state.totalWaitingMs,
@@ -413,6 +420,9 @@ function reset() {
   state.redactionMode = 'black';
   state.captureNetwork = false;
   state.captureNetworkBody = false;
+  state.captureShortcuts = true;
+  state.captureSelection = true;
+  state.captureGestures = false;
   state.waiting = false;
   state.waitingSince = null;
   state.totalWaitingMs = 0;
@@ -670,7 +680,7 @@ async function maybeEnforceTimeLimit() {
 // natural "moment" to capture what the UI looked like.
 const SHOT_TRIGGER_KINDS = new Set(['click', 'dblclick', 'change', 'submit', 'navigation', 'tab_switch']);
 
-async function start({ label, mic, micDeviceId, description, saveAs, redactionMode, captureNetwork, captureNetworkBody }) {
+async function start({ label, mic, micDeviceId, description, saveAs, redactionMode, captureNetwork, captureNetworkBody, captureShortcuts, captureSelection, captureGestures }) {
   if (state.recording) throw new Error('already recording');
   const tab = await getActiveTab();
   reset();
@@ -684,6 +694,9 @@ async function start({ label, mic, micDeviceId, description, saveAs, redactionMo
   state.redactionMode = (redactionMode === 'blur' || redactionMode === 'off') ? redactionMode : 'black';
   state.captureNetwork = !!captureNetwork;
   state.captureNetworkBody = !!captureNetworkBody;
+  state.captureShortcuts = captureShortcuts !== false;
+  state.captureSelection = captureSelection !== false;
+  state.captureGestures = !!captureGestures;
   state.startUrl = scrubUrl(tab.url || null);
   state.tabId = tab.id;
   state.currentTabUrl = scrubUrl(tab.url || null);
@@ -772,6 +785,9 @@ async function resume() {
           type: 'recorder:begin',
           captureNetwork: state.captureNetwork,
           captureNetworkBody: state.captureNetworkBody,
+          captureShortcuts: state.captureShortcuts,
+          captureSelection: state.captureSelection,
+          captureGestures: state.captureGestures,
         });
       } catch {}
     }
@@ -817,6 +833,9 @@ async function handleTabSwitch(newTabId) {
         type: 'recorder:begin',
         captureNetwork: state.captureNetwork,
         captureNetworkBody: state.captureNetworkBody,
+        captureShortcuts: state.captureShortcuts,
+        captureSelection: state.captureSelection,
+        captureGestures: state.captureGestures,
       });
     } catch {}
   }
@@ -869,6 +888,9 @@ async function handleTabUrlChange(tabId, changeInfo) {
           type: 'recorder:begin',
           captureNetwork: state.captureNetwork,
           captureNetworkBody: state.captureNetworkBody,
+          captureShortcuts: state.captureShortcuts,
+          captureSelection: state.captureSelection,
+          captureGestures: state.captureGestures,
         });
       } catch {}
     }
@@ -999,6 +1021,9 @@ async function syncTrackedTabCapture() {
       type: 'recorder:begin',
       captureNetwork: state.captureNetwork,
       captureNetworkBody: state.captureNetworkBody,
+      captureShortcuts: state.captureShortcuts,
+      captureSelection: state.captureSelection,
+      captureGestures: state.captureGestures,
     });
   } catch {}
 }
@@ -1471,6 +1496,9 @@ async function rehydrateIfNeeded() {
     state.redactionMode = (meta.redactionMode === 'blur' || meta.redactionMode === 'off') ? meta.redactionMode : 'black';
     state.captureNetwork = !!meta.captureNetwork;
     state.captureNetworkBody = !!meta.captureNetworkBody;
+    state.captureShortcuts = meta.captureShortcuts !== false;
+    state.captureSelection = meta.captureSelection !== false;
+    state.captureGestures = !!meta.captureGestures;
     state.waiting = !!meta.waiting;
     state.waitingSince = meta.waitingSince ?? null;
     state.totalWaitingMs = meta.totalWaitingMs || 0;
@@ -1567,6 +1595,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           redactionMode: msg.redactionMode,
           captureNetwork: msg.captureNetwork,
           captureNetworkBody: msg.captureNetworkBody,
+          captureShortcuts: msg.captureShortcuts,
+          captureSelection: msg.captureSelection,
+          captureGestures: msg.captureGestures,
         });
         sendResponse({ ok: true });
         return;
@@ -1752,6 +1783,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           recording: state.recording && !state.paused && senderCanRecord(sender),
           captureNetwork: state.captureNetwork,
           captureNetworkBody: state.captureNetworkBody,
+          captureShortcuts: state.captureShortcuts,
+          captureSelection: state.captureSelection,
+          captureGestures: state.captureGestures,
         });
         return;
       }
