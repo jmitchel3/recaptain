@@ -73,6 +73,7 @@ header.top {
   color: var(--muted);
 }
 .project-info.hidden { display: none; }
+.project-remove.hidden { display: none; }
 .project-folder {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   overflow: hidden;
@@ -198,6 +199,7 @@ header.top {
 }
 .scope-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
 .scope-dot.granted { background: var(--ok); }
+.scope-dot.restricted { background: var(--muted); }
 .access-copy {
   margin: 6px 0 8px;
   font-size: 11px;
@@ -205,8 +207,81 @@ header.top {
   color: var(--muted);
 }
 .access-copy code { font-size: 10.5px; }
+.access-primary { width: 100%; }
 .access-actions { display: flex; gap: 6px; margin-top: 6px; }
-.access-why.hidden, .access-granted.hidden { display: none; }
+.access-why.hidden, .access-granted.hidden, .access-restricted.hidden { display: none; }
+.scope-revoke.hidden { display: none; }
+.access-feedback,
+.capture-access-feedback {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--warn);
+}
+.access-feedback.ok,
+.capture-access-feedback.ok { color: var(--ok); }
+.access-feedback.hidden, .capture-access-feedback.hidden { display: none; }
+.capture-access-copy { margin: -4px 0 0 22px; }
+.access-allowlist {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.access-subhead {
+  margin-bottom: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.access-origins {
+  max-height: 112px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.access-origin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+.access-origin:first-child { border-top: 0; }
+.access-origin-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.access-origin-label.all-sites {
+  color: var(--fg);
+  font-family: inherit;
+  font-weight: 600;
+}
+.access-remove {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  font-size: 10.5px;
+}
+.access-empty.hidden { display: none; }
+.access-advanced {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+.access-advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.grant-access.hidden, .all-sites-granted.hidden { display: none; }
+.all-sites-granted { margin-bottom: 0; color: var(--ok); }
 .mic-why { margin: 4px 0 0 22px; }
 .mic-status.hidden, .mic-why.hidden { display: none; }
 .link {
