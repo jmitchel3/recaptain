@@ -53,6 +53,9 @@ const featuresUngranted = $('features-ungranted');
 const featuresGranted = $('features-granted');
 const revokeAllSitesBtn = $('revoke-all-sites');
 const captureHint = $('capture-hint');
+const captureShotsRow = $('capture-shots-row');
+const followTabsRow = $('follow-tabs-row');
+const quickGrantBtn = $('quick-grant');
 const allowlistEdit = $('allowlist-edit');
 const allowlistMore = $('allowlist-more');
 const allowlistEditor = $('allowlist-editor');
@@ -734,6 +737,9 @@ function renderDenylist() {
 function setAccessState(state, pill) {
   accessSection.dataset.state = state;
   scopeText.textContent = pill;
+  // The "+" quick-grant only makes sense when the current site can be granted.
+  const canQuickGrant = state === 'ungranted' && !accessInteractionPending();
+  quickGrantBtn.classList.toggle('hidden', !canQuickGrant);
 }
 
 function renderAccessUI() {
@@ -882,7 +888,7 @@ followTabsInput.addEventListener('change', () => {
   updateBroadCapability('followTabs', followTabsInput);
 });
 
-grantCurrentAccessBtn.addEventListener('click', async () => {
+async function grantCurrentSite() {
   const site = accessState.site;
   if (!site?.pattern) return;
   currentGrantPending = true;
@@ -894,6 +900,8 @@ grantCurrentAccessBtn.addEventListener('click', async () => {
     const granted = await chrome.permissions.request({ origins: [site.pattern] });
     if (granted) {
       setInlineFeedback(accessFeedback, `Access to ${site.host} was granted.`, 'ok');
+      // Collapse once granted; the summary now shows the granted state.
+      accessSection.open = false;
     } else {
       setInlineFeedback(accessFeedback, `Access to ${site.host} was not granted.`);
     }
@@ -904,6 +912,32 @@ grantCurrentAccessBtn.addEventListener('click', async () => {
     currentGrantPending = false;
     await refreshAccessUI();
   }
+}
+
+grantCurrentAccessBtn.addEventListener('click', grantCurrentSite);
+
+// Quick-grant "+" in the collapsed summary: grant without expanding the card.
+quickGrantBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  grantCurrentSite();
+});
+
+// Clicking a disabled capture toggle nudges the operator to Additional features,
+// where all-sites access (which they need) is granted.
+function nudgeFeatures() {
+  featuresSection.open = true;
+  featuresSection.classList.remove('shake');
+  void featuresSection.offsetWidth; // restart the animation
+  featuresSection.classList.add('shake');
+}
+[captureShotsRow, followTabsRow].forEach((row) => {
+  row.addEventListener('click', (e) => {
+    if (!accessState.hasAllSites) {
+      e.preventDefault();
+      nudgeFeatures();
+    }
+  });
 });
 
 grantAccessBtn.addEventListener('click', async () => {

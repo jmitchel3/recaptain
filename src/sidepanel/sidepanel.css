@@ -354,6 +354,31 @@ header.top {
 }
 .features-summary .scope-pill { margin-left: 8px; }
 
+/* Black "+" quick-grant in the collapsed Site access summary. */
+.quick-grant {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  padding: 0; border: 0; border-radius: 6px;
+  background: var(--primary); color: var(--primary-fg);
+  font-size: 16px; line-height: 1; cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.quick-grant:hover { opacity: 0.85; }
+.quick-grant.hidden { display: none; }
+
+/* Nudge: shake Additional features when a locked capture toggle is clicked. */
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+.features.shake { animation: shake 0.4s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .features.shake { animation: none; }
+}
+
 /* Disabled capture toggles (need all-sites) read as muted. */
 .toggle input:disabled ~ span { opacity: 0.5; }
 .capture-hint { margin: -2px 0 0 22px; font-size: 10.5px; line-height: 1.4; color: var(--muted); }

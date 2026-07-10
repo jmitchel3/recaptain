@@ -84,13 +84,15 @@
         Additional features below.
       </p>
 
-      <details class="access" id="access-section" data-state="loading" open>
+      <details class="access" id="access-section" data-state="loading">
         <summary class="access-head">
           <svg class="access-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z"/>
           </svg>
           <span class="scope-label">Site access</span>
           <span class="scope-pill" id="scope-text">checking</span>
+          <button id="quick-grant" class="quick-grant hidden" type="button"
+            title="Grant access to this site" aria-label="Grant access to this site">+</button>
           <svg class="features-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
         </summary>
         <div class="access-body">
