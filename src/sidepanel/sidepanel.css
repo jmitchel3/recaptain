@@ -225,7 +225,7 @@ header.top {
 .access[data-state="granted"] .access-icon,
 .features[data-state="granted"] .access-icon { color: var(--ok); }
 
-.scope-label { font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--fg); }
+.scope-label { font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--fg); white-space: nowrap; flex: 0 0 auto; }
 .scope-pill {
   margin-left: auto;
   padding: 1px 7px;
@@ -338,6 +338,56 @@ header.top {
   gap: 8px; margin-top: 10px;
 }
 .access-ok { font-size: 11px; font-weight: 600; color: var(--ok); }
+
+/* Collapsible site-access + features summaries share the chevron affordance. */
+.access > summary, .features > summary { list-style: none; }
+.access > summary::-webkit-details-marker,
+.features > summary::-webkit-details-marker { display: none; }
+.access[open] > summary .features-chevron,
+.features[open] > summary .features-chevron { transform: rotate(90deg); }
+.access-body { margin-top: 10px; }
+
+.features-summary .features-preview {
+  flex: 1 1 auto; min-width: 0; margin-left: 8px;
+  text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px; color: var(--muted);
+}
+.features-summary .scope-pill { margin-left: 8px; }
+
+/* Disabled capture toggles (need all-sites) read as muted. */
+.toggle input:disabled ~ span { opacity: 0.5; }
+.capture-hint { margin: -2px 0 0 22px; font-size: 10.5px; line-height: 1.4; color: var(--muted); }
+.capture-hint.hidden { display: none; }
+
+/* List heads, inline text actions, and the bulk textarea editors. */
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.list-edit, .list-more {
+  padding: 0; border: 0; background: none;
+  font: inherit; font-size: 10.5px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.list-edit:hover, .list-more:hover { color: var(--fg); text-decoration: underline; }
+.list-edit.hidden, .list-more.hidden { display: none; }
+.list-more { display: block; margin-top: 5px; }
+.list-editor { margin-top: 8px; }
+.list-editor.hidden { display: none; }
+/* While a list is being edited in its textarea, hide the read-only view. */
+.access-allowlist:has(.list-editor:not(.hidden)) .access-origins,
+.access-allowlist:has(.list-editor:not(.hidden)) .list-more,
+.access-allowlist:has(.list-editor:not(.hidden)) .denylist-copy,
+.access-allowlist:has(.list-editor:not(.hidden)) .access-empty { display: none; }
+.list-textarea {
+  width: 100%; min-height: 92px; resize: vertical;
+  padding: 8px 9px;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg); color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; line-height: 1.5;
+}
+.editor-hint { margin: 6px 0; font-size: 10px; line-height: 1.4; color: var(--muted); }
+.editor-actions { display: flex; gap: 6px; margin-top: 6px; }
+.editor-actions .btn-primary { width: auto; padding: 6px 14px; }
+.denylist { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.denylist-copy { margin: 0 0 8px; font-size: 10.5px; }
 
 .mic-why { margin: 4px 0 0 22px; }
 .mic-status.hidden, .mic-why.hidden { display: none; }

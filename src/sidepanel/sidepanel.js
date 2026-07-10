@@ -3,7 +3,7 @@ import {
   queryPermission, requestPermission, pickDirectory,
 } from './projects.js';
 import {
-  getConfig, setConfig, onConfigChanged, DEFAULT_CONFIG,
+  getConfig, setConfig, onConfigChanged, DEFAULT_CONFIG, BUILTIN_DENYLIST,
 } from '../shared/access-config.js';
 import { canonicalize, isValidPattern } from '../shared/match-patterns.js';
 
@@ -35,7 +35,7 @@ const startBtn = $('start');
 const accessSection = $('access-section');
 const accessWhyHost = $('access-why-host');
 const featuresSection = $('features-section');
-const featuresPill = $('features-pill');
+const featuresPreview = $('features-preview');
 const scopeText = $('scope-text');
 const scopeRevoke = $('scope-revoke');
 const grantCurrentAccessBtn = $('grant-current-access');
@@ -52,7 +52,26 @@ const accessFeedback = $('access-feedback');
 const featuresUngranted = $('features-ungranted');
 const featuresGranted = $('features-granted');
 const revokeAllSitesBtn = $('revoke-all-sites');
+const captureHint = $('capture-hint');
+const allowlistEdit = $('allowlist-edit');
+const allowlistMore = $('allowlist-more');
+const allowlistEditor = $('allowlist-editor');
+const allowlistText = $('allowlist-text');
+const allowlistSave = $('allowlist-save');
+const allowlistCancel = $('allowlist-cancel');
+const denylistOrigins = $('denylist-origins');
+const denylistEdit = $('denylist-edit');
+const denylistMore = $('denylist-more');
+const denylistEditor = $('denylist-editor');
+const denylistText = $('denylist-text');
+const denylistSave = $('denylist-save');
+const denylistReset = $('denylist-reset');
+const denylistCancel = $('denylist-cancel');
 const stopBtn = $('stop');
+
+const LIST_TRUNCATE = 4;
+let allowlistExpanded = false;
+let denylistExpanded = false;
 const pauseBtn = $('pause');
 const markWaitingBtn = $('mark-waiting');
 const pausedBanner = $('paused-banner');
@@ -617,13 +636,28 @@ function renderCaptureConfig() {
   followTabsInput.disabled = !configReady || pending;
 
   const hasAllSites = accessState.hasAllSites;
+  // Capture toggles live with the other capture options up top, but only work
+  // under all-sites access, so they stay disabled (with a hint) until granted.
+  const toggleDisabled = !configReady || pending || !hasAllSites;
+  captureShotsInput.disabled = toggleDisabled;
+  followTabsInput.disabled = toggleDisabled;
+  captureHint.classList.toggle('hidden', hasAllSites);
+
   featuresSection.dataset.state = hasAllSites ? 'granted' : 'ungranted';
-  featuresPill.textContent = hasAllSites ? 'on' : 'all sites';
+  if (hasAllSites) {
+    const on = [];
+    if (accessConfig.captureShots) on.push('Screenshots');
+    if (accessConfig.followTabs) on.push('Follow tabs');
+    featuresPreview.textContent = on.length ? on.join(' · ') : 'All-sites on';
+  } else {
+    featuresPreview.textContent = 'Screenshots · Follow tabs';
+  }
   featuresUngranted.classList.toggle('hidden', hasAllSites);
   featuresGranted.classList.toggle('hidden', !hasAllSites);
-  // Auto-open the disclosure once granted so the toggles are visible; leave the
-  // user's manual open/closed state alone when ungranted.
-  if (hasAllSites) featuresSection.open = true;
+  if (hasAllSites) {
+    featuresSection.open = true;
+    renderDenylist();
+  }
   grantAccessBtn.disabled = accessInteractionPending();
   revokeAllSitesBtn.disabled = accessInteractionPending();
   renderStartAvailability();
@@ -663,6 +697,36 @@ function renderGrantedOrigins() {
   accessOrigins.classList.toggle('hidden', hasAllSites || perSite.length === 0);
   accessEmpty.classList.toggle('hidden', hasAllSites || perSite.length > 0);
   accessAllSitesNote.classList.toggle('hidden', !hasAllSites);
+  // Per-site management is moot under all-sites; hide edit + truncation then.
+  allowlistEdit.classList.toggle('hidden', hasAllSites);
+  const moreVisible = !hasAllSites && perSite.length > LIST_TRUNCATE;
+  allowlistMore.classList.toggle('hidden', !moreVisible);
+  allowlistMore.textContent = allowlistExpanded ? 'Show fewer' : `Show all ${perSite.length}`;
+}
+
+function renderList(container, patterns, expanded, mono = true) {
+  const frag = document.createDocumentFragment();
+  const limit = expanded ? patterns.length : LIST_TRUNCATE;
+  for (const p of patterns.slice(0, limit)) {
+    const row = document.createElement('li');
+    row.className = 'access-origin';
+    const label = document.createElement('span');
+    label.className = 'access-origin-label';
+    if (!mono) label.style.fontFamily = 'inherit';
+    label.textContent = p;
+    label.title = p;
+    row.appendChild(label);
+    frag.appendChild(row);
+  }
+  container.replaceChildren(frag);
+}
+
+function renderDenylist() {
+  const patterns = Array.isArray(accessConfig.denylist) ? accessConfig.denylist : [];
+  renderList(denylistOrigins, patterns, denylistExpanded);
+  const moreVisible = patterns.length > LIST_TRUNCATE;
+  denylistMore.classList.toggle('hidden', !moreVisible);
+  denylistMore.textContent = denylistExpanded ? 'Show fewer' : `Show all ${patterns.length}`;
 }
 
 // Short status word shown in the header pill; the accent bar color is driven by
@@ -941,6 +1005,90 @@ function refreshAccessForCurrentTab() {
   renderAccessUI();
   refreshAccessUI();
 }
+
+// ── Allowed-sites list: truncation + bulk textarea editor ──────────────
+allowlistMore.addEventListener('click', () => {
+  allowlistExpanded = !allowlistExpanded;
+  renderGrantedOrigins();
+});
+
+allowlistEdit.addEventListener('click', () => {
+  const perSite = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
+  allowlistText.value = perSite.join('\n');
+  allowlistEditor.classList.remove('hidden');
+  allowlistEdit.classList.add('hidden');
+  allowlistText.focus();
+});
+
+allowlistCancel.addEventListener('click', () => {
+  allowlistEditor.classList.add('hidden');
+  allowlistEdit.classList.remove('hidden');
+});
+
+allowlistSave.addEventListener('click', async () => {
+  const desired = [];
+  for (const line of allowlistText.value.split('\n').map((s) => s.trim()).filter(Boolean)) {
+    try { desired.push(canonicalize(line)); } catch { /* skip invalid line */ }
+  }
+  const desiredSet = new Set(desired);
+  const current = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
+  const toAdd = desired.filter((o) => !current.includes(o));
+  const toRemove = current.filter((o) => !desiredSet.has(o));
+
+  currentGrantPending = true;
+  renderAccessUI();
+  try {
+    // request must be the first awaited call so Chrome sees the Save gesture;
+    // one prompt covers every new origin.
+    if (toAdd.length) {
+      const granted = await chrome.permissions.request({ origins: toAdd });
+      if (!granted) setInlineFeedback(accessFeedback, 'New sites were not granted.');
+    }
+    if (toRemove.length) await chrome.permissions.remove({ origins: toRemove });
+    allowlistEditor.classList.add('hidden');
+    allowlistEdit.classList.remove('hidden');
+  } catch (err) {
+    setInlineFeedback(accessFeedback, 'The allowed sites could not be updated.');
+    await showError(err);
+  } finally {
+    currentGrantPending = false;
+    await refreshAccessUI();
+  }
+});
+
+// ── Denylist: truncation + bulk textarea editor (config only) ──────────
+denylistMore.addEventListener('click', () => {
+  denylistExpanded = !denylistExpanded;
+  renderDenylist();
+});
+
+denylistEdit.addEventListener('click', () => {
+  denylistText.value = (accessConfig.denylist || []).join('\n');
+  denylistEditor.classList.remove('hidden');
+  denylistEdit.classList.add('hidden');
+  denylistText.focus();
+});
+
+denylistCancel.addEventListener('click', () => {
+  denylistEditor.classList.add('hidden');
+  denylistEdit.classList.remove('hidden');
+});
+
+denylistSave.addEventListener('click', async () => {
+  const patterns = denylistText.value
+    .split('\n').map((s) => s.trim()).filter(Boolean)
+    .filter((p) => isValidPattern(p));
+  accessConfig = await setConfig({ denylist: patterns });
+  denylistEditor.classList.add('hidden');
+  denylistEdit.classList.remove('hidden');
+  renderDenylist();
+});
+
+denylistReset.addEventListener('click', async () => {
+  accessConfig = await setConfig({ denylist: [...BUILTIN_DENYLIST] });
+  denylistText.value = BUILTIN_DENYLIST.join('\n');
+  renderDenylist();
+});
 
 // ───────────────────────────────────────────────────────────────────────
 // Start / Stop

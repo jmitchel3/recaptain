@@ -71,47 +71,76 @@
         </label>
       </div>
 
-      <div class="access" id="access-section" data-state="loading">
-        <div class="access-head">
+      <label class="toggle" id="capture-shots-row">
+        <input id="capture-shots" type="checkbox">
+        <span>Capture screenshots</span>
+      </label>
+      <label class="toggle" id="follow-tabs-row">
+        <input id="follow-tabs" type="checkbox">
+        <span>Follow across tabs</span>
+      </label>
+      <p class="capture-hint muted hidden" id="capture-hint">
+        Screenshots and following across tabs need all-sites access, granted under
+        Additional features below.
+      </p>
+
+      <details class="access" id="access-section" data-state="loading" open>
+        <summary class="access-head">
           <svg class="access-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z"/>
           </svg>
           <span class="scope-label">Site access</span>
           <span class="scope-pill" id="scope-text">checking</span>
-        </div>
+          <svg class="features-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        </summary>
+        <div class="access-body">
+          <div class="access-why" id="access-why">
+            <p class="access-copy" id="access-why-copy">
+              Captures clicks, console, and network on
+              <span class="host" id="access-why-host">this site</span>, only while recording.
+            </p>
+            <button id="grant-current-access" class="btn-primary access-primary" disabled>
+              Grant access
+            </button>
+          </div>
 
-        <div class="access-why" id="access-why">
-          <p class="access-copy" id="access-why-copy">
-            Captures clicks, console, and network on
-            <span class="host" id="access-why-host">this site</span>, only while recording.
-          </p>
-          <button id="grant-current-access" class="btn-primary access-primary" disabled>
-            Grant access
-          </button>
-        </div>
+          <div class="access-granted hidden" id="access-granted">
+            <p class="access-copy" id="access-granted-copy"></p>
+            <button id="scope-revoke" class="btn-ghost scope-revoke hidden">Remove access</button>
+          </div>
 
-        <div class="access-granted hidden" id="access-granted">
-          <p class="access-copy" id="access-granted-copy"></p>
-          <button id="scope-revoke" class="btn-ghost scope-revoke hidden">Remove access</button>
-        </div>
+          <div class="access-restricted hidden" id="access-restricted">
+            <p class="access-copy" id="access-restricted-copy">
+              Site access is unavailable on this page.
+            </p>
+          </div>
 
-        <div class="access-restricted hidden" id="access-restricted">
-          <p class="access-copy" id="access-restricted-copy">
-            Site access is unavailable on this page.
-          </p>
-        </div>
+          <p id="access-feedback" class="access-feedback hidden" role="status"></p>
 
-        <p id="access-feedback" class="access-feedback hidden" role="status"></p>
+          <div class="access-allowlist" id="access-allowlist">
+            <div class="list-head">
+              <span class="micro-label">Allowed sites</span>
+              <button id="allowlist-edit" class="list-edit">Edit</button>
+            </div>
+            <ul id="access-origins" class="access-origins"></ul>
+            <button id="allowlist-more" class="list-more hidden"></button>
+            <p id="access-empty" class="access-copy muted access-empty">None yet.</p>
+            <p id="access-allsites-note" class="access-copy muted hidden">
+              All sites, via all-sites access.
+            </p>
 
-        <div class="access-allowlist" id="access-allowlist">
-          <div class="micro-label">Allowed sites</div>
-          <ul id="access-origins" class="access-origins"></ul>
-          <p id="access-empty" class="access-copy muted access-empty">None yet.</p>
-          <p id="access-allsites-note" class="access-copy muted hidden">
-            All sites, via all-sites access.
-          </p>
+            <div id="allowlist-editor" class="list-editor hidden">
+              <textarea id="allowlist-text" class="list-textarea" spellcheck="false"
+                placeholder="one site per line&#10;example.com&#10;*.myapp.com"></textarea>
+              <p class="editor-hint muted">One site per line. Saving asks Chrome once for any new sites.</p>
+              <div class="editor-actions">
+                <button id="allowlist-save" class="btn-primary">Save</button>
+                <button id="allowlist-cancel" class="btn-ghost">Cancel</button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
 
       <details class="features" id="features-section">
         <summary class="features-summary">
@@ -119,36 +148,46 @@
             <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/>
           </svg>
           <span class="scope-label">Additional features</span>
-          <span class="scope-pill" id="features-pill">all sites</span>
+          <span class="features-preview" id="features-preview">Screenshots · Follow tabs</span>
           <svg class="features-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
         </summary>
         <div class="features-body">
           <p class="access-copy">
-            Need <strong>all-sites</strong> access. Still records only while
-            running, and never on denylisted pages.
+            Grant <strong>all-sites</strong> access to enable screenshots, following
+            across tabs, and recording any site without per-site prompts. Records only
+            while running, never on denylisted pages.
           </p>
-          <ul class="features-list">
-            <li><strong>Screenshots</strong> — redacted page images</li>
-            <li><strong>Follow across tabs</strong></li>
-            <li><strong>Any site, no per-site prompts</strong></li>
-          </ul>
 
           <div id="features-ungranted">
-            <button id="grant-access" class="btn-ghost access-primary">Grant all-sites access</button>
+            <button id="grant-access" class="btn-primary access-primary">Grant all-sites access</button>
           </div>
 
           <div id="features-granted" class="hidden">
-            <label class="toggle">
-              <input id="capture-shots" type="checkbox">
-              <span>Capture screenshots</span>
-            </label>
-            <label class="toggle">
-              <input id="follow-tabs" type="checkbox">
-              <span>Follow across tabs</span>
-            </label>
             <div class="features-footer">
-              <span id="all-sites-granted" class="access-ok">All-sites granted</span>
+              <span id="all-sites-granted" class="access-ok">All-sites access granted</span>
               <button id="revoke-all-sites" class="btn-ghost">Revoke</button>
+            </div>
+
+            <div class="access-allowlist denylist">
+              <div class="list-head">
+                <span class="micro-label">Never record</span>
+                <button id="denylist-edit" class="list-edit">Edit</button>
+              </div>
+              <p class="access-copy muted denylist-copy">
+                Auth and payment pages Recaptain skips even with all-sites access.
+              </p>
+              <ul id="denylist-origins" class="access-origins"></ul>
+              <button id="denylist-more" class="list-more hidden"></button>
+
+              <div id="denylist-editor" class="list-editor hidden">
+                <textarea id="denylist-text" class="list-textarea" spellcheck="false"
+                  placeholder="one pattern per line&#10;*.okta.com&#10;checkout.stripe.com/*"></textarea>
+                <div class="editor-actions">
+                  <button id="denylist-save" class="btn-primary">Save</button>
+                  <button id="denylist-reset" class="btn-ghost">Defaults</button>
+                  <button id="denylist-cancel" class="btn-ghost">Cancel</button>
+                </div>
+              </div>
             </div>
           </div>
 
