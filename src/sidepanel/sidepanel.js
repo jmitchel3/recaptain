@@ -5,7 +5,7 @@ import {
 import {
   getConfig, setConfig, onConfigChanged, DEFAULT_CONFIG, BUILTIN_DENYLIST,
 } from '../shared/access-config.js';
-import { canonicalize, isValidPattern } from '../shared/match-patterns.js';
+import { canonicalize, isValidPattern, compileMatcher } from '../shared/match-patterns.js';
 
 // ───────────────────────────────────────────────────────────────────────
 // Elements
@@ -53,6 +53,63 @@ const accessEmpty = $('access-empty');
 const accessFeedback = $('access-feedback');
 const captureHint = $('capture-hint');
 const quickGrantBtn = $('quick-grant');
+const openOptionsBtn = $('open-options');
+openOptionsBtn.addEventListener('click', () => {
+  try { chrome.runtime.openOptionsPage(); } catch {}
+});
+const dormantBanner = $('dormant-banner');
+const dormantText = $('dormant-text');
+const dormantGrant = $('dormant-grant');
+
+// Whether the CURRENT tab is actually being recorded, mirroring the SW's policy
+// (permission + record mode + denylist). Drives the dormant state.
+let recordingNow = false;
+function currentSiteCoverage() {
+  const site = accessState.site;
+  if (!site?.pattern) return 'restricted';
+  const url = site.url;
+  const denyPatterns = accessConfig.denylistEnabled ? (accessConfig.denylist || []) : [];
+  if (compileMatcher(denyPatterns)(url)) return 'denied';
+  if (!accessState.currentGranted) return 'ungranted';
+  if (accessConfig.recordMode === 'all' && accessState.hasAllSites) return 'covered';
+  const allow = [
+    ...(accessConfig.allowlist || []),
+    ...accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN),
+  ];
+  return compileMatcher(allow)(url) ? 'covered' : 'notallowed';
+}
+
+function renderDormant() {
+  if (!recordingNow) {
+    dormantBanner.classList.add('hidden');
+    activePanel.classList.remove('dormant');
+    return;
+  }
+  const cov = currentSiteCoverage();
+  if (cov === 'covered') {
+    dormantBanner.classList.add('hidden');
+    activePanel.classList.remove('dormant');
+    return;
+  }
+  activePanel.classList.add('dormant');
+  dormantBanner.classList.remove('hidden');
+  const host = accessState.site?.host || 'This page';
+  if (cov === 'denied') {
+    dormantText.textContent = `${host} is on your denied list, so it is not recorded. Remove it from Denied sites to record here.`;
+    dormantGrant.classList.add('hidden');
+  } else if (cov === 'restricted') {
+    dormantText.textContent = 'This browser page cannot be recorded.';
+    dormantGrant.classList.add('hidden');
+  } else if (cov === 'notallowed') {
+    dormantText.textContent = `${host} is not in your allowed sites, so it is not recorded. Grant it to record here.`;
+    dormantGrant.classList.remove('hidden');
+  } else {
+    dormantText.textContent = `${host} is not being recorded. Grant access to record it.`;
+    dormantGrant.classList.remove('hidden');
+  }
+}
+
+dormantGrant.addEventListener('click', () => { grantCurrentSite(); });
 const allowlistEdit = $('allowlist-edit');
 const allowlistMore = $('allowlist-more');
 const allowlistEditor = $('allowlist-editor');
@@ -759,6 +816,7 @@ function renderAccessUI() {
 
   renderGrantedOrigins();
   renderCaptureConfig();
+  renderDormant();
 }
 
 async function refreshAccessUI() {
@@ -1366,6 +1424,7 @@ function renderTimer(s) {
 
 function renderRecordingState(s) {
   if (s.recording) {
+    recordingNow = true;
     idlePanel.classList.add('hidden');
     activePanel.classList.remove('hidden');
     const statusLabel = s.paused ? 'paused' : (s.waiting ? 'waiting' : 'recording');
@@ -1393,7 +1452,11 @@ function renderRecordingState(s) {
     consoleCountEl.textContent = `${s.consoleCount ?? 0} logs`;
     tabsCountEl.textContent = `${s.tabsCount ?? 1} tab${(s.tabsCount ?? 1) === 1 ? '' : 's'}`;
     renderMeter(s);
+    refreshAccessUI();
+    renderDormant();
   } else {
+    recordingNow = false;
+    renderDormant();
     idlePanel.classList.remove('hidden');
     activePanel.classList.add('hidden');
     statusEl.textContent = 'idle';

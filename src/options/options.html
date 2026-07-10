@@ -137,6 +137,26 @@
         </label>
       </div>
     </section>
+
+    <section class="card" aria-labelledby="policy-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Share</p>
+          <h2 id="policy-heading">Policy export / import</h2>
+        </div>
+      </div>
+      <p class="section-copy">
+        Share these preferences as an org policy. The file holds your record mode,
+        allowed and denied patterns, and capture settings, but never your actual
+        site grants: those always need each person's own consent.
+      </p>
+      <div class="policy-actions">
+        <button id="policy-export" type="button">Export policy</button>
+        <button id="policy-import" type="button">Import policy</button>
+        <input id="policy-file" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="policy-status" class="field-help" role="status" aria-live="polite"></p>
+    </section>
   </main>
 
   <script type="module" src="options.js"></script>

@@ -4,6 +4,7 @@ import {
   getConfig,
   onConfigChanged,
   setConfig,
+  toPolicy,
 } from '../shared/access-config.js';
 import { canonicalize, isValidPattern } from '../shared/match-patterns.js';
 
@@ -516,6 +517,61 @@ window.addEventListener('beforeunload', () => {
   }
   unregisterPermissionListeners();
 });
+
+// ── Policy export / import ─────────────────────────────────────────────
+const policyExport = $('policy-export');
+const policyImport = $('policy-import');
+const policyFile = $('policy-file');
+const policyStatus = $('policy-status');
+
+if (policyExport && policyImport && policyFile) {
+  policyExport.addEventListener('click', () => {
+    try {
+      const blob = new Blob([JSON.stringify(toPolicy(config), null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'recaptain-policy.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (policyStatus) policyStatus.textContent = 'Exported recaptain-policy.json.';
+    } catch {
+      if (policyStatus) policyStatus.textContent = 'Export failed.';
+    }
+  });
+
+  policyImport.addEventListener('click', () => policyFile.click());
+
+  policyFile.addEventListener('change', async () => {
+    const file = policyFile.files?.[0];
+    policyFile.value = '';
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const patch = {};
+      if (parsed.recordMode === 'all' || parsed.recordMode === 'allowed') patch.recordMode = parsed.recordMode;
+      if (Array.isArray(parsed.allowlist)) {
+        patch.allowlist = parsed.allowlist.filter((p) => typeof p === 'string' && isValidPattern(p));
+      }
+      if (Array.isArray(parsed.denylist)) {
+        patch.denylist = parsed.denylist.filter((p) => typeof p === 'string' && isValidPattern(p));
+      }
+      if (typeof parsed.denylistEnabled === 'boolean') patch.denylistEnabled = parsed.denylistEnabled;
+      if (typeof parsed.captureShots === 'boolean') patch.captureShots = parsed.captureShots;
+      if (typeof parsed.followTabs === 'boolean') patch.followTabs = parsed.followTabs;
+      if (!Object.keys(patch).length) {
+        if (policyStatus) policyStatus.textContent = 'No recognizable policy in that file.';
+        return;
+      }
+      await persistConfig(patch, 'Policy imported.');
+      if (policyStatus) policyStatus.textContent = 'Policy imported.';
+    } catch {
+      if (policyStatus) policyStatus.textContent = 'Could not read that policy file.';
+    }
+  });
+}
 
 registerPermissionListeners();
 subscribeToConfig();

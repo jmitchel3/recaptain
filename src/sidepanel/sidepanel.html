@@ -9,7 +9,15 @@
   <header class="top">
     <div class="title-row">
       <div class="title">Recaptain</div>
-      <div id="status" class="status">idle</div>
+      <div class="title-right">
+        <button id="open-options" class="icon-btn" title="Settings and policy" aria-label="Settings and policy">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/>
+          </svg>
+        </button>
+        <div id="status" class="status">idle</div>
+      </div>
     </div>
   </header>
 
@@ -198,6 +206,10 @@
       </div>
       <div id="paused-banner" class="paused-banner hidden" role="status">paused: timer held. Click Resume when you're back.</div>
       <div id="waiting-banner" class="waiting-banner hidden" role="status">Waiting for page, not counted against session limit.</div>
+      <div id="dormant-banner" class="dormant-banner hidden" role="status">
+        <span id="dormant-text"></span>
+        <button id="dormant-grant" class="btn-primary hidden" type="button">Grant access</button>
+      </div>
       <div id="coverage-line" class="coverage-line hidden"></div>
       <div id="meter-wrap" class="meter-wrap hidden">
         <div class="meter-label">
