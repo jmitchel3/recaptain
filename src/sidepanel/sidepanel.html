@@ -42,7 +42,7 @@
       </label>
 
       <label class="toggle">
-        <input id="mic" type="checkbox" checked>
+        <input id="mic" type="checkbox">
         <span>Record microphone</span>
       </label>
       <div class="mic-device-row" id="mic-device-row">
@@ -59,21 +59,6 @@
         Records your narration alongside the session, only while recording. Audio
         stays in the bundle on your device. Turn this off to skip it.
       </p>
-
-      <label class="toggle">
-        <input id="capture-shots" type="checkbox">
-        <span>Capture screenshots</span>
-      </label>
-
-      <label class="toggle">
-        <input id="follow-tabs" type="checkbox">
-        <span>Follow across tabs</span>
-      </label>
-      <p class="access-copy muted capture-access-copy">
-        Screenshots and following across tabs need access to all sites. Chrome
-        will ask for that access when you turn either option on.
-      </p>
-      <p id="capture-access-feedback" class="capture-access-feedback hidden" role="status"></p>
 
       <label class="toggle">
         <input id="capture-network" type="checkbox">
@@ -94,9 +79,9 @@
 
         <div class="access-why" id="access-why">
           <p class="access-copy">
-            Recaptain needs access to this site to capture clicks, console, and
-            network activity <strong>only while a recording is running</strong>.
-            Granting one site does not give Recaptain access everywhere.
+            Recaptain records only the sites you allow, and only while a recording
+            is running. Grant this site to capture its clicks, console, and
+            network. Granting one site gives no access anywhere else.
           </p>
           <button id="grant-current-access" class="primary access-primary" disabled>
             Grant access to this site
@@ -106,7 +91,7 @@
         <div class="access-granted hidden" id="access-granted">
           <p class="access-copy" id="access-granted-copy"></p>
           <div class="access-actions">
-            <button id="scope-revoke" class="btn scope-revoke">Remove current grant</button>
+            <button id="scope-revoke" class="btn scope-revoke hidden">Remove access to this site</button>
           </div>
         </div>
 
@@ -118,24 +103,51 @@
 
         <p id="access-feedback" class="access-feedback hidden" role="status"></p>
 
-        <div class="access-allowlist">
-          <div class="access-subhead">Granted sites</div>
+        <div class="access-allowlist" id="access-allowlist">
+          <div class="access-subhead">Allowed sites</div>
           <ul id="access-origins" class="access-origins"></ul>
-          <p id="access-empty" class="access-copy muted access-empty">No site access granted yet.</p>
+          <p id="access-empty" class="access-copy muted access-empty">No sites allowed yet.</p>
+          <p id="access-allsites-note" class="access-copy muted hidden">
+            All sites are allowed via all-sites access below.
+          </p>
+        </div>
+      </div>
+
+      <div class="access features" id="features-section">
+        <div class="access-head">
+          <span class="scope-dot" id="features-dot"></span>
+          <span class="scope-text">Additional features</span>
+        </div>
+        <p class="access-copy">
+          These need access to <strong>all sites</strong>. Recaptain still records
+          only while a recording is running, and never on denylisted pages.
+        </p>
+        <ul class="features-list">
+          <li><strong>Screenshots</strong> — periodic redacted page images</li>
+          <li><strong>Follow across tabs</strong> — keep recording when the active tab changes</li>
+          <li><strong>Any site, no per-site prompts</strong></li>
+        </ul>
+
+        <div id="features-ungranted">
+          <button id="grant-access" class="primary access-primary">Grant access to all sites</button>
         </div>
 
-        <details class="access-advanced">
-          <summary>Advanced: all-sites access</summary>
-          <p class="access-copy muted">
-            Grant all-sites access for screenshots, following across tabs, or
-            recording many sites without separate prompts. Nothing is captured
-            unless a recording is running.
-          </p>
-          <button id="grant-access" class="btn grant-access">Grant site access</button>
-          <p id="all-sites-granted" class="access-copy all-sites-granted hidden">
-            All-sites access is granted. Remove it from the list above to revoke it.
-          </p>
-        </details>
+        <div id="features-granted" class="hidden">
+          <label class="toggle">
+            <input id="capture-shots" type="checkbox">
+            <span>Capture screenshots</span>
+          </label>
+          <label class="toggle">
+            <input id="follow-tabs" type="checkbox">
+            <span>Follow across tabs</span>
+          </label>
+          <p id="all-sites-granted" class="access-copy all-sites-granted">All-sites access is granted.</p>
+          <div class="access-actions">
+            <button id="revoke-all-sites" class="btn">Revoke all-sites access</button>
+          </div>
+        </div>
+
+        <p id="capture-access-feedback" class="capture-access-feedback hidden" role="status"></p>
       </div>
 
       <button id="start" class="primary">Start recording</button>

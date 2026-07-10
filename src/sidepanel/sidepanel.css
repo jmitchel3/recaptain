@@ -284,6 +284,17 @@ header.top {
 .all-sites-granted { margin-bottom: 0; color: var(--ok); }
 .mic-why { margin: 4px 0 0 22px; }
 .mic-status.hidden, .mic-why.hidden { display: none; }
+.features-list {
+  margin: 6px 0 8px;
+  padding-left: 18px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.features-list strong { color: var(--fg); font-weight: 600; }
+.access-origins.hidden { display: none; }
+.access-copy.hidden { display: none; }
+#features-ungranted.hidden, #features-granted.hidden { display: none; }
 .link {
   color: inherit;
   text-decoration: underline;

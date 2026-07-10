@@ -44,8 +44,12 @@ const accessRestrictedCopy = $('access-restricted-copy');
 const accessGrantedCopy = $('access-granted-copy');
 const accessOrigins = $('access-origins');
 const accessEmpty = $('access-empty');
+const accessAllSitesNote = $('access-allsites-note');
 const accessFeedback = $('access-feedback');
-const allSitesGranted = $('all-sites-granted');
+const featuresUngranted = $('features-ungranted');
+const featuresGranted = $('features-granted');
+const featuresDot = $('features-dot');
+const revokeAllSitesBtn = $('revoke-all-sites');
 const stopBtn = $('stop');
 const pauseBtn = $('pause');
 const markWaitingBtn = $('mark-waiting');
@@ -498,7 +502,6 @@ let currentGrantPending = false;
 let allSitesGrantPending = false;
 let startPending = false;
 let accessRefreshSequence = 0;
-let configPermissionReconcilePending = false;
 
 const accessState = {
   loading: true,
@@ -576,31 +579,30 @@ async function getGrantedOrigins() {
   }
 }
 
-function currentGrantOrigin() {
-  if (accessState.hasAllSites) return ALL_SITES_PATTERN;
-  if (accessState.site?.pattern && accessState.grantedOrigins.includes(accessState.site.pattern)) {
-    return accessState.site.pattern;
-  }
-  return null;
-}
-
 function accessInteractionPending() {
   return Boolean(
     currentGrantPending
     || allSitesGrantPending
     || configTogglePending
-    || configPermissionReconcilePending
     || startPending
   );
 }
 
 function renderStartAvailability() {
+  // Start records with whatever access is already granted; it never requests
+  // access itself. So it stays disabled until the current site is covered by a
+  // per-site grant or all-sites access.
   startBtn.disabled = accessInteractionPending()
     || !configReady
     || accessState.loading
-    || !accessState.site?.pattern;
+    || !accessState.site?.pattern
+    || !accessState.currentGranted;
 }
 
+// Screenshots and follow-across-tabs live in the Additional-features box and are
+// only meaningful under all-sites access. When all-sites is granted the toggles
+// are plain config writes (no permission prompt); otherwise the box shows the
+// grant button instead of the toggles.
 function renderCaptureConfig() {
   const pending = accessInteractionPending();
   captureShotsInput.checked = configTogglePending === 'captureShots'
@@ -611,27 +613,38 @@ function renderCaptureConfig() {
     : Boolean(accessConfig.followTabs);
   captureShotsInput.disabled = !configReady || pending;
   followTabsInput.disabled = !configReady || pending;
+
+  const hasAllSites = accessState.hasAllSites;
+  featuresDot.classList.toggle('granted', hasAllSites);
+  featuresUngranted.classList.toggle('hidden', hasAllSites);
+  featuresGranted.classList.toggle('hidden', !hasAllSites);
+  grantAccessBtn.disabled = accessInteractionPending();
+  revokeAllSitesBtn.disabled = accessInteractionPending();
   renderStartAvailability();
 }
 
 function renderGrantedOrigins() {
+  // The allowlist shows only specific per-site grants. All-sites access is a
+  // separate concept, managed in the Additional-features box, so it is never
+  // listed or removed here (that avoids the "removing all sites wiped one site"
+  // confusion).
+  const perSite = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
   const frag = document.createDocumentFragment();
-  for (const origin of accessState.grantedOrigins) {
+  for (const origin of perSite) {
     const row = document.createElement('li');
     row.className = 'access-origin';
 
     const label = document.createElement('span');
     label.className = 'access-origin-label';
-    label.textContent = origin === ALL_SITES_PATTERN ? 'All sites (<all_urls>)' : origin;
+    label.textContent = origin;
     label.title = origin;
-    if (origin === ALL_SITES_PATTERN) label.classList.add('all-sites');
 
     const remove = document.createElement('button');
     remove.className = 'btn access-remove';
     remove.type = 'button';
     remove.textContent = 'remove';
     remove.disabled = accessInteractionPending();
-    remove.setAttribute('aria-label', `Remove ${origin === ALL_SITES_PATTERN ? 'all-sites access' : origin}`);
+    remove.setAttribute('aria-label', `Remove ${origin}`);
     remove.addEventListener('click', () => {
       removeGrantedOrigin(origin, remove);
     });
@@ -640,7 +653,10 @@ function renderGrantedOrigins() {
     frag.appendChild(row);
   }
   accessOrigins.replaceChildren(frag);
-  accessEmpty.classList.toggle('hidden', accessState.grantedOrigins.length > 0);
+  const hasAllSites = accessState.hasAllSites;
+  accessOrigins.classList.toggle('hidden', hasAllSites || perSite.length === 0);
+  accessEmpty.classList.toggle('hidden', hasAllSites || perSite.length > 0);
+  accessAllSitesNote.classList.toggle('hidden', !hasAllSites);
 }
 
 function renderAccessUI() {
@@ -669,15 +685,16 @@ function renderAccessUI() {
     accessGranted.classList.remove('hidden');
     accessRestricted.classList.add('hidden');
     accessGrantedCopy.textContent = accessState.hasAllSites
-      ? `${accessState.site.host} is covered by the all-sites grant.`
+      ? `${accessState.site.host} is covered by all-sites access.`
       : `${accessState.site.host} is ready to record.`;
 
-    const origin = currentGrantOrigin();
-    scopeRevoke.classList.toggle('hidden', !origin);
+    // Per-site removal only when this site has its OWN grant. Under all-sites,
+    // removal happens via "Revoke all-sites access" in the features box.
+    const perSiteGrant = !accessState.hasAllSites
+      && accessState.grantedOrigins.includes(accessState.site.pattern);
+    scopeRevoke.classList.toggle('hidden', !perSiteGrant);
     scopeRevoke.disabled = accessInteractionPending();
-    scopeRevoke.textContent = origin === ALL_SITES_PATTERN
-      ? 'Revoke all-sites access'
-      : `Remove access to ${accessState.site.host}`;
+    scopeRevoke.textContent = `Remove access to ${accessState.site.host}`;
   } else {
     scopeText.textContent = `Site access: ${accessState.site.host} not granted`;
     accessWhy.classList.remove('hidden');
@@ -688,9 +705,6 @@ function renderAccessUI() {
   }
 
   renderGrantedOrigins();
-  grantAccessBtn.classList.toggle('hidden', accessState.hasAllSites);
-  grantAccessBtn.disabled = accessInteractionPending();
-  allSitesGranted.classList.toggle('hidden', !accessState.hasAllSites);
   renderCaptureConfig();
 }
 
@@ -733,10 +747,13 @@ onConfigChanged((next) => {
   reconcileBroadCapabilities();
 });
 
+// If all-sites access disappears (revoked here or from chrome://extensions)
+// while a broad feature is still on in config, turn the feature off. The
+// features box hides the toggles without all-sites, so this only fires for
+// out-of-band revocation.
 async function reconcileBroadCapabilities() {
   if (
-    configPermissionReconcilePending
-    || configTogglePending
+    configTogglePending
     || currentGrantPending
     || allSitesGrantPending
     || startPending
@@ -747,88 +764,50 @@ async function reconcileBroadCapabilities() {
     || (!accessConfig.captureShots && !accessConfig.followTabs)
   ) return;
 
-  configPermissionReconcilePending = true;
+  accessConfig = await setConfig({ captureShots: false, followTabs: false });
+  configReady = true;
   renderCaptureConfig();
-  renderAccessUI();
-  try {
-    let hasAllSitesNow;
-    try {
-      hasAllSitesNow = await chrome.permissions.contains(ALL_SITES_PERMISSION);
-    } catch {
-      return;
-    }
-    if (hasAllSitesNow) {
-      await refreshAccessUI();
-      return;
-    }
-
-    accessConfig = await setConfig({ captureShots: false, followTabs: false });
-    configReady = true;
-    renderCaptureConfig();
-    setInlineFeedback(
-      captureAccessFeedback,
-      'All-sites access is not granted, so screenshots and following across tabs were turned off.',
-    );
-  } finally {
-    configPermissionReconcilePending = false;
-    renderCaptureConfig();
-    renderAccessUI();
-  }
 }
 
-async function updateBroadCapability(key, input, label) {
-  if (configTogglePending || configPermissionReconcilePending) {
+// The screenshots / follow-tabs toggles are only interactive under all-sites
+// access, so toggling is a plain config write with no permission prompt.
+async function updateBroadCapability(key, input) {
+  if (configTogglePending) {
     input.checked = Boolean(accessConfig[key]);
+    return;
+  }
+  if (!accessState.hasAllSites) {
+    input.checked = false;
+    setInlineFeedback(captureAccessFeedback, 'Grant all-sites access first.');
     return;
   }
   const desired = input.checked;
   const previous = Boolean(accessConfig[key]);
   configTogglePending = key;
   configToggleDesired = desired;
-  captureShotsInput.disabled = true;
-  followTabsInput.disabled = true;
-  renderAccessUI();
-  setInlineFeedback(captureAccessFeedback, '');
+  renderCaptureConfig();
 
   try {
-    if (desired) {
-      // This must be the first awaited call so Chrome sees the change gesture.
-      const granted = await chrome.permissions.request(ALL_SITES_PERMISSION);
-      if (!granted) {
-        input.checked = previous;
-        setInlineFeedback(
-          captureAccessFeedback,
-          `All-sites access was not granted, so ${label} stayed off.`,
-        );
-        return;
-      }
-    }
-
     accessConfig = await setConfig({ [key]: desired });
     configReady = true;
-    setInlineFeedback(
-      captureAccessFeedback,
-      desired ? `${label} is on and all-sites access is granted.` : '',
-      'ok',
-    );
+    setInlineFeedback(captureAccessFeedback, '');
   } catch (err) {
     input.checked = previous;
-    setInlineFeedback(captureAccessFeedback, `${label} could not be updated.`);
+    setInlineFeedback(captureAccessFeedback, 'That setting could not be updated.');
     await showError(err);
   } finally {
     configTogglePending = null;
     configToggleDesired = null;
     renderCaptureConfig();
-    await refreshAccessUI();
   }
 }
 
 captureShotsInput.addEventListener('change', () => {
-  updateBroadCapability('captureShots', captureShotsInput, 'Capture screenshots');
+  updateBroadCapability('captureShots', captureShotsInput);
 });
 
 followTabsInput.addEventListener('change', () => {
-  updateBroadCapability('followTabs', followTabsInput, 'Follow across tabs');
+  updateBroadCapability('followTabs', followTabsInput);
 });
 
 grantCurrentAccessBtn.addEventListener('click', async () => {
@@ -864,12 +843,30 @@ grantAccessBtn.addEventListener('click', async () => {
     // The request runs directly under this click's user gesture.
     const granted = await chrome.permissions.request(ALL_SITES_PERMISSION);
     if (granted) {
-      setInlineFeedback(accessFeedback, 'All-sites access was granted.', 'ok');
+      setInlineFeedback(captureAccessFeedback, 'All-sites access was granted.', 'ok');
     } else {
-      setInlineFeedback(accessFeedback, 'All-sites access was not granted.');
+      setInlineFeedback(captureAccessFeedback, 'All-sites access was not granted.');
     }
   } catch (err) {
-    setInlineFeedback(accessFeedback, 'All-sites access could not be requested.');
+    setInlineFeedback(captureAccessFeedback, 'All-sites access could not be requested.');
+    await showError(err);
+  } finally {
+    allSitesGrantPending = false;
+    await refreshAccessUI();
+  }
+});
+
+revokeAllSitesBtn.addEventListener('click', async () => {
+  allSitesGrantPending = true;
+  renderAccessUI();
+  try {
+    await chrome.permissions.remove(ALL_SITES_PERMISSION);
+    // Broad features are meaningless without all-sites; turn them off so they
+    // do not silently re-arm on the next grant.
+    accessConfig = await setConfig({ captureShots: false, followTabs: false });
+    setInlineFeedback(captureAccessFeedback, 'All-sites access was removed.', 'ok');
+  } catch (err) {
+    setInlineFeedback(captureAccessFeedback, 'All-sites access could not be removed.');
     await showError(err);
   } finally {
     allSitesGrantPending = false;
@@ -900,8 +897,11 @@ async function removeGrantedOrigin(origin, button) {
 }
 
 scopeRevoke.addEventListener('click', () => {
-  const origin = currentGrantOrigin();
-  if (origin) removeGrantedOrigin(origin, scopeRevoke);
+  // Per-site removal only. All-sites is revoked from the features box.
+  const pattern = accessState.site?.pattern;
+  if (pattern && !accessState.hasAllSites && accessState.grantedOrigins.includes(pattern)) {
+    removeGrantedOrigin(pattern, scopeRevoke);
+  }
 });
 
 if (chrome.permissions?.onAdded) {
@@ -947,25 +947,16 @@ startBtn.addEventListener('click', async () => {
       throw new Error(site?.reason || 'Open an http or https site before starting a recording.');
     }
 
-    // Host access is the gate. This request must be the first awaited call so
-    // Chrome sees the Start click's user gesture.
-    const granted = await chrome.permissions.request(
-      needsAllSites ? ALL_SITES_PERMISSION : { origins: [site.pattern] },
-    );
-    if (!granted) {
-      await refreshAccessUI();
-      throw new Error(
-        needsAllSites
-          ? 'Screenshots and following across tabs need all-sites access. Access was not granted, so recording did not start.'
-          : `Recaptain needs access to ${site.host}. Access was not granted, so recording did not start.`,
-      );
-    }
+    // Start records with access that is ALREADY granted; it never requests
+    // access itself (that is what the grant buttons are for). The button is
+    // disabled without access, so this is a defensive re-check against the tab
+    // changing between render and click.
     await refreshAccessUI();
     if (!accessState.site?.pattern || !accessState.currentGranted) {
-      throw new Error('The active tab changed to a site without access. Grant that site and try again.');
+      throw new Error(`Grant access to ${site.host} before recording.`);
     }
     if (needsAllSites && !accessState.hasAllSites) {
-      throw new Error('All-sites access is required by the enabled capture options.');
+      throw new Error('Screenshots and following across tabs need all-sites access. Grant it under Additional features, or turn those options off.');
     }
     // Folder permission FIRST: ensureMicPermission may open a tab, which
     // consumes the click's user-gesture token and would make a later
