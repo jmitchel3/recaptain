@@ -347,6 +347,23 @@ header.top {
 .features[open] > summary .features-chevron { transform: rotate(90deg); }
 .access-body { margin-top: 10px; }
 
+/* Record-mode segmented control */
+.segmented {
+  display: flex; gap: 2px;
+  margin-bottom: 10px; padding: 2px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.seg {
+  flex: 1 1 0; padding: 6px 8px;
+  border: 0; border-radius: 6px; background: transparent;
+  color: var(--muted); font: inherit; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+}
+.seg:hover:not(.active) { color: var(--fg); }
+.seg.active { background: var(--primary); color: var(--primary-fg); }
+.seg:disabled { cursor: not-allowed; opacity: 0.6; }
+.access-allmode.hidden, #all-needs-grant.hidden, .access-allowlist.hidden { display: none; }
+
 .features-summary .features-preview {
   flex: 1 1 auto; min-width: 0; margin-left: 8px;
   text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

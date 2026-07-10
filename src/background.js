@@ -94,6 +94,7 @@ let cachedDenyMatcher = compileMatcher([]);
 let cachedGrantedOrigins = [];
 let cachedGrantedMatcher = compileMatcher([]);
 let cachedAllSitesGranted = false;
+let cachedRecordMatcher = compileMatcher([]); // config.allowlist
 let recorderAccessRefresh = Promise.resolve();
 
 // Active (non-paused) milliseconds since recording began. This is what the
@@ -224,7 +225,23 @@ function applyCachedConfig(config) {
     : [...DEFAULT_CONFIG.denylist];
   cachedConfig = { ...DEFAULT_CONFIG, ...config, denylist };
   applyActiveDenylist(cachedConfig.denylistEnabled ? denylist : []);
+  recomputeRecordMatcher();
   if (state.recording) state.captureShots = !!cachedConfig.captureShots;
+}
+
+// Granting a per-site permission implies wanting to record it, so the effective
+// allow set is the config allowlist plus every granted per-site origin.
+function effectiveAllowPatterns() {
+  const set = new Set();
+  for (const p of (Array.isArray(cachedConfig.allowlist) ? cachedConfig.allowlist : [])) {
+    try { set.add(canonicalize(p)); } catch { /* skip invalid */ }
+  }
+  for (const o of cachedGrantedOrigins) if (o !== '<all_urls>') set.add(o);
+  return [...set];
+}
+
+function recomputeRecordMatcher() {
+  cachedRecordMatcher = compileMatcher(effectiveAllowPatterns());
 }
 
 function applyGrantedOrigins(origins) {
@@ -235,6 +252,7 @@ function applyGrantedOrigins(origins) {
   cachedGrantedMatcher = compileMatcher(
     cachedGrantedOrigins.filter((origin) => origin !== '<all_urls>'),
   );
+  recomputeRecordMatcher();
 }
 
 async function refreshCachedAccess() {
@@ -275,6 +293,19 @@ function isInjectablePage(url) {
 function hasGrantedAccess(url) {
   if (!isInjectablePage(url)) return false;
   return cachedAllSitesGranted || cachedGrantedMatcher(url);
+}
+
+// Record policy (separate from Chrome permission): in 'all' mode with all-sites
+// access, everything is in scope; otherwise only the config allowlist is.
+function recordAllowsUrl(url) {
+  if (cachedConfig.recordMode === 'all' && cachedAllSitesGranted) return true;
+  return cachedRecordMatcher(url);
+}
+
+function noteNotAllowed(url) {
+  const host = pageHost(url);
+  if (!host) return null;
+  return pushAccessNoteOnce(`allow:${host}`, `not captured: ${host} is not in the allowed sites`);
 }
 
 function pushAccessNoteOnce(key, text) {
@@ -396,6 +427,7 @@ function reset() {
   cachedGrantedOrigins = [];
   cachedGrantedMatcher = compileMatcher([]);
   cachedAllSitesGranted = false;
+  cachedRecordMatcher = compileMatcher([]);
 }
 
 async function ensureOffscreen({ needMic = false } = {}) {
@@ -510,6 +542,10 @@ async function takeScreenshot(reason) {
   if (!trackedTab || !hasGrantedAccess(trackedTab.url)) return null;
   if (cachedDenyMatcher(trackedTab.url)) {
     noteDeniedPage(trackedTab.url);
+    return null;
+  }
+  if (!recordAllowsUrl(trackedTab.url)) {
+    noteNotAllowed(trackedTab.url);
     return null;
   }
 
@@ -849,18 +885,24 @@ async function handleTabUrlChange(tabId, changeInfo) {
 const RECORDER_SCRIPT_ID = 'recaptain-recorder';
 
 async function registerRecorderContentScript() {
+  let config = DEFAULT_CONFIG;
+  try { config = await getConfig(); } catch {}
+  applyCachedConfig(config);
   let permissions = { origins: [] };
   try { permissions = await chrome.permissions.getAll(); } catch {}
-  const origins = Array.isArray(permissions?.origins) ? permissions.origins : [];
-  applyGrantedOrigins(origins);
+  applyGrantedOrigins(permissions?.origins);
+  const denylist = cachedActiveDenylist;
 
-  let denylist = [];
-  try { denylist = await getActiveDenylist(); } catch {}
-  applyActiveDenylist(denylist);
-
-  const matches = cachedAllSitesGranted
-    ? ['<all_urls>']
-    : cachedGrantedOrigins.filter((origin) => origin !== '<all_urls>');
+  // Register only the record scope: all-sites in 'all' mode; otherwise the
+  // effective allow set, filtered to what Chrome actually permits.
+  let matches;
+  if (cachedConfig.recordMode === 'all' && cachedAllSitesGranted) {
+    matches = ['<all_urls>'];
+  } else {
+    const eff = effectiveAllowPatterns();
+    const grantedSet = new Set(cachedGrantedOrigins);
+    matches = cachedAllSitesGranted ? eff : eff.filter((m) => grantedSet.has(m));
+  }
   const excludeMatches = [];
   for (const pattern of denylist) {
     try { excludeMatches.push(canonicalize(pattern)); } catch {}
@@ -906,6 +948,10 @@ async function ensureContentScript(tabId) {
     noteMissingAccess(tab.url);
     return false;
   }
+  if (!recordAllowsUrl(tab.url)) {
+    noteNotAllowed(tab.url);
+    return false;
+  }
 
   try {
     const res = await chrome.tabs.sendMessage(tabId, { type: 'recorder:ping' });
@@ -921,6 +967,10 @@ async function ensureContentScript(tabId) {
   }
   if (!hasGrantedAccess(tab.url)) {
     noteMissingAccess(tab.url);
+    return false;
+  }
+  if (!recordAllowsUrl(tab.url)) {
+    noteNotAllowed(tab.url);
     return false;
   }
   try {
@@ -1482,7 +1532,7 @@ async function startForTest(options = {}) {
   // The legacy e2e hook starts with screenshots on. Keep that isolated test
   // contract while the production path follows the persisted opt-in default.
   await rehydrateIfNeeded();
-  await setConfig({ captureShots: options.captureShots ?? true });
+  await setConfig({ captureShots: options.captureShots ?? true, recordMode: 'all' });
   return start(options);
 }
 

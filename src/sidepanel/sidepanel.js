@@ -34,8 +34,10 @@ const captureNetworkBodyInput = $('capture-network-body');
 const startBtn = $('start');
 const accessSection = $('access-section');
 const accessWhyHost = $('access-why-host');
-const featuresSection = $('features-section');
-const featuresPreview = $('features-preview');
+const modeAllowed = $('mode-allowed');
+const modeAll = $('mode-all');
+const accessAllmode = $('access-allmode');
+const allNeedsGrant = $('all-needs-grant');
 const scopeText = $('scope-text');
 const scopeRevoke = $('scope-revoke');
 const grantCurrentAccessBtn = $('grant-current-access');
@@ -45,16 +47,11 @@ const accessGranted = $('access-granted');
 const accessRestricted = $('access-restricted');
 const accessRestrictedCopy = $('access-restricted-copy');
 const accessGrantedCopy = $('access-granted-copy');
+const accessAllowlistEl = $('access-allowlist');
 const accessOrigins = $('access-origins');
 const accessEmpty = $('access-empty');
-const accessAllSitesNote = $('access-allsites-note');
 const accessFeedback = $('access-feedback');
-const featuresUngranted = $('features-ungranted');
-const featuresGranted = $('features-granted');
-const revokeAllSitesBtn = $('revoke-all-sites');
 const captureHint = $('capture-hint');
-const captureShotsRow = $('capture-shots-row');
-const followTabsRow = $('follow-tabs-row');
 const quickGrantBtn = $('quick-grant');
 const allowlistEdit = $('allowlist-edit');
 const allowlistMore = $('allowlist-more');
@@ -635,42 +632,16 @@ function renderCaptureConfig() {
   followTabsInput.checked = configTogglePending === 'followTabs'
     ? Boolean(configToggleDesired)
     : Boolean(accessConfig.followTabs);
+  // Toggles stay clickable without all-sites; enabling one requests it. The hint
+  // just explains why the prompt appears.
   captureShotsInput.disabled = !configReady || pending;
   followTabsInput.disabled = !configReady || pending;
-
-  const hasAllSites = accessState.hasAllSites;
-  // Capture toggles live with the other capture options up top, but only work
-  // under all-sites access, so they stay disabled (with a hint) until granted.
-  const toggleDisabled = !configReady || pending || !hasAllSites;
-  captureShotsInput.disabled = toggleDisabled;
-  followTabsInput.disabled = toggleDisabled;
-  captureHint.classList.toggle('hidden', hasAllSites);
-
-  featuresSection.dataset.state = hasAllSites ? 'granted' : 'ungranted';
-  if (hasAllSites) {
-    const on = [];
-    if (accessConfig.captureShots) on.push('Screenshots');
-    if (accessConfig.followTabs) on.push('Follow tabs');
-    featuresPreview.textContent = on.length ? on.join(' · ') : 'All-sites on';
-  } else {
-    featuresPreview.textContent = 'Screenshots · Follow tabs';
-  }
-  featuresUngranted.classList.toggle('hidden', hasAllSites);
-  featuresGranted.classList.toggle('hidden', !hasAllSites);
-  if (hasAllSites) {
-    featuresSection.open = true;
-    renderDenylist();
-  }
-  grantAccessBtn.disabled = accessInteractionPending();
-  revokeAllSitesBtn.disabled = accessInteractionPending();
+  captureHint.classList.toggle('hidden', accessState.hasAllSites);
+  renderDenylist();
   renderStartAvailability();
 }
 
 function renderGrantedOrigins() {
-  // The allowlist shows only specific per-site grants. All-sites access is a
-  // separate concept, managed in the Additional-features box, so it is never
-  // listed or removed here (that avoids the "removing all sites wiped one site"
-  // confusion).
   const perSite = accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN);
   const frag = document.createDocumentFragment();
   for (const origin of perSite) {
@@ -696,13 +667,8 @@ function renderGrantedOrigins() {
     frag.appendChild(row);
   }
   accessOrigins.replaceChildren(frag);
-  const hasAllSites = accessState.hasAllSites;
-  accessOrigins.classList.toggle('hidden', hasAllSites || perSite.length === 0);
-  accessEmpty.classList.toggle('hidden', hasAllSites || perSite.length > 0);
-  accessAllSitesNote.classList.toggle('hidden', !hasAllSites);
-  // Per-site management is moot under all-sites; hide edit + truncation then.
-  allowlistEdit.classList.toggle('hidden', hasAllSites);
-  const moreVisible = !hasAllSites && perSite.length > LIST_TRUNCATE;
+  accessEmpty.classList.toggle('hidden', perSite.length > 0);
+  const moreVisible = perSite.length > LIST_TRUNCATE;
   allowlistMore.classList.toggle('hidden', !moreVisible);
   allowlistMore.textContent = allowlistExpanded ? 'Show fewer' : `Show all ${perSite.length}`;
 }
@@ -734,40 +700,51 @@ function renderDenylist() {
 
 // Short status word shown in the header pill; the accent bar color is driven by
 // the data-state on the card.
-function setAccessState(state, pill) {
+function setAccessState(state, pill, allowQuickGrant = true) {
   accessSection.dataset.state = state;
   scopeText.textContent = pill;
-  // The "+" quick-grant only makes sense when the current site can be granted.
-  const canQuickGrant = state === 'ungranted' && !accessInteractionPending();
+  // The "+" quick-grant only makes sense for granting the current site.
+  const canQuickGrant = allowQuickGrant && state === 'ungranted' && !accessInteractionPending();
   quickGrantBtn.classList.toggle('hidden', !canQuickGrant);
 }
 
 function renderAccessUI() {
-  if (accessState.loading) {
+  const allMode = accessConfig.recordMode === 'all';
+  modeAllowed.setAttribute('aria-pressed', String(!allMode));
+  modeAll.setAttribute('aria-pressed', String(allMode));
+  modeAllowed.classList.toggle('active', !allMode);
+  modeAll.classList.toggle('active', allMode);
+  modeAllowed.disabled = accessInteractionPending();
+  modeAll.disabled = accessInteractionPending();
+
+  accessAllmode.classList.toggle('hidden', !allMode);
+  accessAllowlistEl.classList.toggle('hidden', allMode);
+  accessWhy.classList.add('hidden');
+  accessGranted.classList.add('hidden');
+  accessRestricted.classList.add('hidden');
+
+  if (allMode) {
+    // "All sites" records everything and needs all-sites permission.
+    const granted = accessState.hasAllSites;
+    setAccessState(granted ? 'granted' : 'ungranted', granted ? 'all sites' : 'needs grant', false);
+    allNeedsGrant.classList.toggle('hidden', granted);
+    grantAccessBtn.disabled = accessInteractionPending();
+  } else if (accessState.loading) {
     setAccessState('loading', 'checking');
     accessWhy.classList.remove('hidden');
-    accessGranted.classList.add('hidden');
-    accessRestricted.classList.add('hidden');
     accessWhyHost.textContent = 'this site';
     grantCurrentAccessBtn.textContent = 'Grant access';
     grantCurrentAccessBtn.disabled = true;
   } else if (!accessState.site?.pattern) {
     setAccessState('restricted', 'unavailable');
-    accessWhy.classList.add('hidden');
-    accessGranted.classList.add('hidden');
     accessRestricted.classList.remove('hidden');
     accessRestrictedCopy.textContent = accessState.site?.reason || 'Site access is unavailable on this page.';
   } else if (accessState.currentGranted) {
     setAccessState('granted', accessState.hasAllSites ? 'all sites' : 'granted');
-    accessWhy.classList.add('hidden');
     accessGranted.classList.remove('hidden');
-    accessRestricted.classList.add('hidden');
     accessGrantedCopy.textContent = accessState.hasAllSites
       ? `${accessState.site.host} is covered by all-sites access.`
       : `${accessState.site.host} is ready to record.`;
-
-    // Per-site removal only when this site has its OWN grant. Under all-sites,
-    // removal happens via "Revoke" in the features box.
     const perSiteGrant = !accessState.hasAllSites
       && accessState.grantedOrigins.includes(accessState.site.pattern);
     scopeRevoke.classList.toggle('hidden', !perSiteGrant);
@@ -775,8 +752,6 @@ function renderAccessUI() {
   } else {
     setAccessState('ungranted', 'not granted');
     accessWhy.classList.remove('hidden');
-    accessGranted.classList.add('hidden');
-    accessRestricted.classList.add('hidden');
     accessWhyHost.textContent = accessState.site.host;
     grantCurrentAccessBtn.textContent = `Grant ${accessState.site.host}`;
     grantCurrentAccessBtn.disabled = accessInteractionPending();
@@ -814,14 +789,14 @@ async function refreshAccessUI() {
 async function loadAccessConfig() {
   accessConfig = await getConfig();
   configReady = true;
-  renderCaptureConfig();
+  renderAccessUI();
   reconcileBroadCapabilities();
 }
 
 onConfigChanged((next) => {
   accessConfig = next;
   configReady = true;
-  renderCaptureConfig();
+  renderAccessUI();
   reconcileBroadCapabilities();
 });
 
@@ -847,16 +822,11 @@ async function reconcileBroadCapabilities() {
   renderCaptureConfig();
 }
 
-// The screenshots / follow-tabs toggles are only interactive under all-sites
-// access, so toggling is a plain config write with no permission prompt.
+// Screenshots and follow-tabs need all-sites permission; enabling one requests
+// it (under this change's user gesture) without changing the record mode.
 async function updateBroadCapability(key, input) {
   if (configTogglePending) {
     input.checked = Boolean(accessConfig[key]);
-    return;
-  }
-  if (!accessState.hasAllSites) {
-    input.checked = false;
-    setInlineFeedback(captureAccessFeedback, 'Grant all-sites access first.');
     return;
   }
   const desired = input.checked;
@@ -866,6 +836,14 @@ async function updateBroadCapability(key, input) {
   renderCaptureConfig();
 
   try {
+    if (desired && !accessState.hasAllSites) {
+      const granted = await chrome.permissions.request(ALL_SITES_PERMISSION);
+      if (!granted) {
+        input.checked = false;
+        setInlineFeedback(captureAccessFeedback, 'That needs all-sites access, which was not granted.');
+        return;
+      }
+    }
     accessConfig = await setConfig({ [key]: desired });
     configReady = true;
     setInlineFeedback(captureAccessFeedback, '');
@@ -876,16 +854,36 @@ async function updateBroadCapability(key, input) {
   } finally {
     configTogglePending = null;
     configToggleDesired = null;
-    renderCaptureConfig();
+    await refreshAccessUI();
   }
 }
 
 captureShotsInput.addEventListener('change', () => {
   updateBroadCapability('captureShots', captureShotsInput);
 });
-
 followTabsInput.addEventListener('change', () => {
   updateBroadCapability('followTabs', followTabsInput);
+});
+
+// Record-mode segmented control.
+modeAllowed.addEventListener('click', async () => {
+  if (accessConfig.recordMode !== 'all' || accessInteractionPending()) return;
+  accessConfig = await setConfig({ recordMode: 'allowed' });
+  await refreshAccessUI();
+});
+modeAll.addEventListener('click', async () => {
+  if (accessConfig.recordMode === 'all' || accessInteractionPending()) return;
+  // All-sites mode needs all-sites permission; request it under this gesture.
+  if (!accessState.hasAllSites) {
+    let granted = false;
+    try { granted = await chrome.permissions.request(ALL_SITES_PERMISSION); } catch {}
+    if (!granted) {
+      setInlineFeedback(accessFeedback, 'All-sites access was not granted, so record mode stayed on Only allowed.');
+      return;
+    }
+  }
+  accessConfig = await setConfig({ recordMode: 'all' });
+  await refreshAccessUI();
 });
 
 async function grantCurrentSite() {
@@ -923,56 +921,21 @@ quickGrantBtn.addEventListener('click', (e) => {
   grantCurrentSite();
 });
 
-// Clicking a disabled capture toggle nudges the operator to Additional features,
-// where all-sites access (which they need) is granted.
-function nudgeFeatures() {
-  featuresSection.open = true;
-  featuresSection.classList.remove('shake');
-  void featuresSection.offsetWidth; // restart the animation
-  featuresSection.classList.add('shake');
-}
-[captureShotsRow, followTabsRow].forEach((row) => {
-  row.addEventListener('click', (e) => {
-    if (!accessState.hasAllSites) {
-      e.preventDefault();
-      nudgeFeatures();
-    }
-  });
-});
-
+// "Grant all-sites access" button shown in All-sites mode when not yet granted.
 grantAccessBtn.addEventListener('click', async () => {
   allSitesGrantPending = true;
   renderAccessUI();
   setInlineFeedback(accessFeedback, '');
-
   try {
     // The request runs directly under this click's user gesture.
     const granted = await chrome.permissions.request(ALL_SITES_PERMISSION);
-    if (granted) {
-      setInlineFeedback(captureAccessFeedback, 'All-sites access was granted.', 'ok');
-    } else {
-      setInlineFeedback(captureAccessFeedback, 'All-sites access was not granted.');
-    }
+    setInlineFeedback(
+      accessFeedback,
+      granted ? 'All-sites access was granted.' : 'All-sites access was not granted.',
+      granted ? 'ok' : 'warn',
+    );
   } catch (err) {
-    setInlineFeedback(captureAccessFeedback, 'All-sites access could not be requested.');
-    await showError(err);
-  } finally {
-    allSitesGrantPending = false;
-    await refreshAccessUI();
-  }
-});
-
-revokeAllSitesBtn.addEventListener('click', async () => {
-  allSitesGrantPending = true;
-  renderAccessUI();
-  try {
-    await chrome.permissions.remove(ALL_SITES_PERMISSION);
-    // Broad features are meaningless without all-sites; turn them off so they
-    // do not silently re-arm on the next grant.
-    accessConfig = await setConfig({ captureShots: false, followTabs: false });
-    setInlineFeedback(captureAccessFeedback, 'All-sites access was removed.', 'ok');
-  } catch (err) {
-    setInlineFeedback(captureAccessFeedback, 'All-sites access could not be removed.');
+    setInlineFeedback(accessFeedback, 'All-sites access could not be requested.');
     await showError(err);
   } finally {
     allSitesGrantPending = false;

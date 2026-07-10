@@ -32,10 +32,17 @@ export const BUILTIN_DENYLIST = [
   '*.paypal.com/*',
 ];
 
-// Defaults: capture toggles OFF (each opts into all-sites when enabled); the
-// denylist protection is ON.
+// Record policy is separate from Chrome host permission: "can Recaptain touch a
+// site" (permission) vs "should it record a site" (this config).
+//   recordMode 'all'     - record every site (needs all-sites permission),
+//                          minus the denylist.
+//   recordMode 'allowed' - record only sites matching `allowlist`, minus the
+//                          denylist. (default)
+// Defaults: capture toggles OFF; denylist protection ON; record only allowed.
 export const DEFAULT_CONFIG = {
   version: 1,
+  recordMode: 'allowed',
+  allowlist: [],
   captureShots: false,
   followTabs: false,
   denylistEnabled: true,
@@ -44,13 +51,25 @@ export const DEFAULT_CONFIG = {
 
 function withDefaults(stored) {
   if (!stored || typeof stored !== 'object') {
-    return { ...DEFAULT_CONFIG, denylist: [...BUILTIN_DENYLIST] };
+    return { ...DEFAULT_CONFIG, denylist: [...BUILTIN_DENYLIST], allowlist: [] };
   }
   return {
     ...DEFAULT_CONFIG,
     ...stored,
+    recordMode: stored.recordMode === 'all' ? 'all' : 'allowed',
+    allowlist: Array.isArray(stored.allowlist) ? stored.allowlist : [],
     denylist: Array.isArray(stored.denylist) ? stored.denylist : [...BUILTIN_DENYLIST],
   };
+}
+
+// Config that can be shared as an org policy (Export/Import). Host GRANTS are not
+// here: those always require each user's own consent.
+export const POLICY_KEYS = ['recordMode', 'allowlist', 'denylistEnabled', 'denylist', 'captureShots', 'followTabs'];
+
+export function toPolicy(config) {
+  const out = {};
+  for (const k of POLICY_KEYS) out[k] = config[k];
+  return { recaptainPolicy: 1, ...out };
 }
 
 export async function getConfig() {
