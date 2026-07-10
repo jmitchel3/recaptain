@@ -55,6 +55,10 @@
         <span class="mic-text" id="mic-text">checking…</span>
         <a href="#" id="mic-manage" class="link">manage</a>
       </div>
+      <p class="access-copy muted mic-why" id="mic-why">
+        Records your narration alongside the session, only while recording. Audio
+        stays in the bundle on your device. Turn this off to skip it.
+      </p>
 
       <label class="toggle">
         <input id="capture-shots" type="checkbox" checked>
@@ -70,6 +74,34 @@
           <input id="capture-network-body" type="checkbox" disabled>
           <span>Include response bodies (JSON / text, truncated to 4KB)</span>
         </label>
+      </div>
+
+      <div class="access" id="access-section">
+        <div class="access-head">
+          <span class="scope-dot" id="scope-dot"></span>
+          <span class="scope-text" id="scope-text">checking site access…</span>
+        </div>
+
+        <div class="access-why" id="access-why">
+          <p class="access-copy">
+            To record a tab, Recaptain needs access to the sites you record. It
+            uses that access to capture clicks, screenshots, console, and network
+            activity <strong>only while a recording is running</strong>. Nothing
+            is ever sent off your device.
+          </p>
+          <button id="grant-access" class="btn">Grant site access</button>
+        </div>
+
+        <div class="access-granted hidden" id="access-granted">
+          <div class="access-actions">
+            <button id="scope-revoke" class="btn">Revoke site access</button>
+          </div>
+          <p class="access-copy muted">
+            Revoke here anytime, or remove it from
+            <code>chrome://extensions</code> &rarr; Recaptain &rarr; Details
+            &rarr; Site access. Revoking stops all page access immediately.
+          </p>
+        </div>
       </div>
 
       <button id="start" class="primary">Start recording</button>

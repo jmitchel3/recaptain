@@ -182,6 +182,33 @@ header.top {
 .mic-dot.granted { background: var(--ok); }
 .mic-dot.denied { background: var(--danger); }
 .mic-dot.prompt { background: var(--warn); }
+.access {
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border-radius: 6px;
+}
+.access-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.scope-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.scope-dot.granted { background: var(--ok); }
+.access-copy {
+  margin: 6px 0 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.access-copy code { font-size: 10.5px; }
+.access-actions { display: flex; gap: 6px; margin-top: 6px; }
+.access-why.hidden, .access-granted.hidden { display: none; }
+.mic-why { margin: 4px 0 0 22px; }
+.mic-status.hidden, .mic-why.hidden { display: none; }
 .link {
   color: inherit;
   text-decoration: underline;

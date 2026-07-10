@@ -26,6 +26,12 @@ const captureNetworkInput = $('capture-network');
 const captureNetworkBodyInput = $('capture-network-body');
 
 const startBtn = $('start');
+const scopeDot = $('scope-dot');
+const scopeText = $('scope-text');
+const scopeRevoke = $('scope-revoke');
+const grantAccessBtn = $('grant-access');
+const accessWhy = $('access-why');
+const accessGranted = $('access-granted');
 const stopBtn = $('stop');
 const pauseBtn = $('pause');
 const markWaitingBtn = $('mark-waiting');
@@ -176,8 +182,12 @@ function errFromResponse(res) {
 // Microphone: device picker + permission indicator
 // ───────────────────────────────────────────────────────────────────────
 function updateMicDeviceVisibility() {
-  if (micInput.checked) micDeviceRow.classList.remove('hidden');
-  else micDeviceRow.classList.add('hidden');
+  const on = micInput.checked;
+  micDeviceRow.classList.toggle('hidden', !on);
+  const micStatus = $('mic-status');
+  const micWhy = $('mic-why');
+  if (micStatus) micStatus.classList.toggle('hidden', !on);
+  if (micWhy) micWhy.classList.toggle('hidden', !on);
 }
 
 async function refreshMicDevices() {
@@ -464,11 +474,76 @@ projectRemoveBtn.addEventListener('click', async () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
+// Site access (optional <all_urls> host permission)
+// ───────────────────────────────────────────────────────────────────────
+// Recaptain records whatever site the operator is on, so it needs host access
+// to that site. Rather than request all-sites access at install time (which
+// trips Chrome's broad-host-permission warning), we keep it optional and ask
+// for it here, on the first Start, inside the click's user gesture. Without it
+// there is nothing to record: every event, the console/network hooks, and the
+// screenshots all depend on host access to the page.
+const HOST_ORIGINS = { origins: ['<all_urls>'] };
+
+async function hasSiteAccess() {
+  try { return await chrome.permissions.contains(HOST_ORIGINS); }
+  catch { return false; }
+}
+
+// Must run first in the Start click handler: chrome.permissions.request needs
+// the click's user gesture, so nothing may be awaited before it. When access is
+// already granted this resolves true immediately with no prompt, so it is safe
+// to call unconditionally on every Start.
+async function ensureSiteAccess() {
+  try { return await chrome.permissions.request(HOST_ORIGINS); }
+  catch { return false; }
+}
+
+async function refreshScopeUI() {
+  const granted = await hasSiteAccess();
+  scopeDot.classList.toggle('granted', granted);
+  scopeText.textContent = granted
+    ? 'Site access: all sites, granted'
+    : 'Site access: not granted yet';
+  accessWhy.classList.toggle('hidden', granted);
+  accessGranted.classList.toggle('hidden', !granted);
+}
+
+grantAccessBtn.addEventListener('click', async () => {
+  grantAccessBtn.disabled = true;
+  try {
+    // The click is the user gesture chrome.permissions.request needs.
+    await ensureSiteAccess();
+  } finally {
+    grantAccessBtn.disabled = false;
+    await refreshScopeUI();
+  }
+});
+
+scopeRevoke.addEventListener('click', async () => {
+  try { await chrome.permissions.remove(HOST_ORIGINS); } catch {}
+  await refreshScopeUI();
+});
+
+if (chrome.permissions?.onAdded) {
+  chrome.permissions.onAdded.addListener(refreshScopeUI);
+  chrome.permissions.onRemoved.addListener(refreshScopeUI);
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Start / Stop
 // ───────────────────────────────────────────────────────────────────────
 startBtn.addEventListener('click', async () => {
   startBtn.disabled = true;
   try {
+    // Site access is the gate. Request it before anything else so the click's
+    // user gesture is still live, and bail with a clear message if it's denied.
+    if (!(await ensureSiteAccess())) {
+      await refreshScopeUI();
+      throw new Error(
+        "Recaptain needs access to the sites you record. Site access wasn't granted, so there's nothing to capture. Click Start again to grant it.",
+      );
+    }
+    await refreshScopeUI();
     // Folder permission FIRST: ensureMicPermission may open a tab, which
     // consumes the click's user-gesture token and would make a later
     // requestPermission() prompt fail.
@@ -1002,6 +1077,7 @@ function connect() {
 restoreError();
 restoreCaptureSettings();
 refreshStatus();
+refreshScopeUI();
 refreshMicStatus();
 updateMicDeviceVisibility();
 refreshMicDevices();

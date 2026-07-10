@@ -518,6 +518,10 @@ async function start({ label, mic, micDeviceId, description, saveAs, captureShot
     }
   }
 
+  // Register the document_start content script for subsequent navigations
+  // (no-op without host access), then inject into the already-open tab, which
+  // registration does not retroactively cover.
+  await registerRecorderContentScript();
   await ensureContentScript(tab.id);
   try {
     await chrome.tabs.sendMessage(tab.id, {
@@ -650,6 +654,48 @@ async function handleTabUrlChange(tabId, changeInfo) {
   }
 }
 
+// Host access (<all_urls>) is an OPTIONAL permission, granted at first Start
+// from the sidepanel (inside a user gesture). We only inject the recorder while
+// recording, so the content script is registered dynamically on start and torn
+// down on stop rather than declared statically in the manifest.
+const RECORDER_ORIGINS = { origins: ['<all_urls>'] };
+const RECORDER_SCRIPT_ID = 'recaptain-recorder';
+
+async function hasHostAccess() {
+  try { return await chrome.permissions.contains(RECORDER_ORIGINS); }
+  catch { return false; }
+}
+
+// Register the recorder content script for every URL at document_start so the
+// console/network hooks install before page scripts run on each navigation
+// during the session. persistAcrossSessions:false keeps the registration
+// scoped to this browser session: it survives a service-worker restart mid
+// recording, but a browser restart clears it (recordings never span that).
+async function registerRecorderContentScript() {
+  if (!(await hasHostAccess())) return;
+  try {
+    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [RECORDER_SCRIPT_ID] });
+    if (existing.length) return;
+  } catch {}
+  try {
+    await chrome.scripting.registerContentScripts([{
+      id: RECORDER_SCRIPT_ID,
+      js: ['content.js'],
+      matches: ['<all_urls>'],
+      runAt: 'document_start',
+      allFrames: false,
+      persistAcrossSessions: false,
+    }]);
+  } catch {
+    // Host access not granted (or already registered): fall back to the
+    // per-tab executeScript path in ensureContentScript.
+  }
+}
+
+async function unregisterRecorderContentScript() {
+  try { await chrome.scripting.unregisterContentScripts({ ids: [RECORDER_SCRIPT_ID] }); } catch {}
+}
+
 async function ensureContentScript(tabId) {
   // After the extension is reloaded, tabs that were already open do NOT
   // automatically get the content script. Probe with a quick message, and
@@ -673,6 +719,7 @@ async function stop({ target = 'download', projectName = null } = {}) {
   if (!state.recording) return { bundled: false };
   state.recording = false;
   broadcastRecordingState();
+  await unregisterRecorderContentScript();
 
   if (periodicShotHandle != null) {
     clearInterval(periodicShotHandle);
@@ -1035,6 +1082,15 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   handleTabUrlChange(tabId, changeInfo).catch(() => {});
 });
 
+// If the operator revokes host access (from the sidepanel or chrome://settings),
+// tear down the dynamically registered content script so nothing is injected
+// once access is gone.
+chrome.permissions.onRemoved.addListener((perms) => {
+  if (perms?.origins?.some((o) => o === '<all_urls>')) {
+    unregisterRecorderContentScript().catch(() => {});
+  }
+});
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'sidepanel') return;
   sidepanelPorts.add(port);
@@ -1143,6 +1199,7 @@ async function stopAndPackage() {
   if (!state.recording) throw new Error('not recording');
   state.recording = false;
   broadcastRecordingState();
+  await unregisterRecorderContentScript();
   if (periodicShotHandle != null) { clearInterval(periodicShotHandle); periodicShotHandle = null; }
   const last = state.tabTimeline[state.tabTimeline.length - 1];
   if (last && last.left_at == null) last.left_at = Date.now();

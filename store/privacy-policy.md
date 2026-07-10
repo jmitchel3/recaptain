@@ -33,9 +33,11 @@ nowhere but your own disk.
 - It does not send data to the developer or to any third party.
 - It does not include analytics, telemetry, tracking, or remote logging.
 - It does not load or execute any remote code.
-- It does not request any network host permission for itself. The `<all_urls>`
-  host permission is used solely to inject the recorder into the page you choose
-  to record and to capture that tab's screenshot.
+- It does not request any network host permission for itself. Site access
+  (`<all_urls>`) is an optional permission that is not granted at install; it is
+  requested only when you first click Start, and is used solely to inject the
+  recorder into the page you choose to record and to capture that tab's
+  screenshot. You can revoke it at any time from the side panel.
 
 ## Privacy protections built in
 
