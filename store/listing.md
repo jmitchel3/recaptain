@@ -71,7 +71,7 @@ Paste each into the matching field.
 
 | Permission | Justification |
 |---|---|
-| `optional_host_permissions` (`<all_urls>`) | Optional, not requested at install. Requested at runtime the first time the user clicks Start, inside that user gesture, so the user grants access at the moment they choose to record. Used to inject the recorder content script into whatever page the user records and to capture that tab's screenshot with `chrome.tabs.captureVisibleTab`. Revocable from the side panel. Not used for any network request. |
+| `optional_host_permissions` (`<all_urls>`) | Optional, not requested at install. Granted deliberately by the user at runtime, either for the current site only or, if they choose, for all sites, inside a user gesture. Used to inject the recorder content script into the pages the user records and to capture those tabs' screenshots with `chrome.tabs.captureVisibleTab`. Managed and revocable from the extension's Permissions page and the side panel; a built-in denylist excludes recognized auth/payment pages. Not used for any network request. |
 | `tabs` | Follows the recording across tab switches and navigations so the timeline stays continuous. |
 | `scripting` | Registers and injects the recorder content script across page loads during a recording (dynamic content scripts; nothing is injected until the user grants access and starts recording). |
 | `downloads` | Saves the finished recording as a .zip file to the user's Downloads folder. |
