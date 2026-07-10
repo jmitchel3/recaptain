@@ -2,6 +2,10 @@ import {
   listProjects, saveProject, deleteProject, touchProject,
   queryPermission, requestPermission, pickDirectory,
 } from './projects.js';
+import {
+  getConfig, setConfig, onConfigChanged, DEFAULT_CONFIG,
+} from '../shared/access-config.js';
+import { canonicalize, isValidPattern, compileMatcher } from '../shared/match-patterns.js';
 
 // ───────────────────────────────────────────────────────────────────────
 // Elements
@@ -22,11 +26,92 @@ const micText = $('mic-text');
 const micManage = $('mic-manage');
 
 const captureShotsInput = $('capture-shots');
+const followTabsInput = $('follow-tabs');
 const captureNetworkInput = $('capture-network');
 const captureNetworkBodyInput = $('capture-network-body');
+const captureShortcutsInput = $('capture-shortcuts');
+const captureSelectionInput = $('capture-selection');
+const captureGesturesInput = $('capture-gestures');
 
 const startBtn = $('start');
+const accessSection = $('access-section');
+const accessWhyHost = $('access-why-host');
+const modeSummary = $('mode-summary');
+const scopeText = $('scope-text');
+const scopeRevoke = $('scope-revoke');
+const grantCurrentAccessBtn = $('grant-current-access');
+const accessWhy = $('access-why');
+const accessGranted = $('access-granted');
+const accessRestricted = $('access-restricted');
+const accessRestrictedCopy = $('access-restricted-copy');
+const accessGrantedCopy = $('access-granted-copy');
+const accessFeedback = $('access-feedback');
+const captureHint = $('capture-hint');
+const quickGrantBtn = $('quick-grant');
+const manageAccessBtn = $('manage-access');
+function openPermissionsPage() {
+  try { chrome.runtime.openOptionsPage(); } catch {}
+}
+const openOptionsBtn = $('open-options');
+openOptionsBtn.addEventListener('click', openPermissionsPage);
+const captureHintLink = $('capture-hint-link');
+captureHintLink.addEventListener('click', (e) => { e.preventDefault(); openPermissionsPage(); });
+const dormantBanner = $('dormant-banner');
+const dormantText = $('dormant-text');
+const dormantGrant = $('dormant-grant');
+
+// Whether the CURRENT tab is actually being recorded, mirroring the SW's policy
+// (permission + record mode + denylist). Drives the dormant state.
+let recordingNow = false;
+function currentSiteCoverage() {
+  const site = accessState.site;
+  if (!site?.pattern) return 'restricted';
+  const url = site.url;
+  const denyPatterns = accessConfig.denylistEnabled ? (accessConfig.denylist || []) : [];
+  if (compileMatcher(denyPatterns)(url)) return 'denied';
+  if (!accessState.currentGranted) return 'ungranted';
+  if (accessConfig.recordMode === 'all' && accessState.hasAllSites) return 'covered';
+  const allow = [
+    ...(accessConfig.allowlist || []),
+    ...accessState.grantedOrigins.filter((o) => o !== ALL_SITES_PATTERN),
+  ];
+  return compileMatcher(allow)(url) ? 'covered' : 'notallowed';
+}
+
+function renderDormant() {
+  if (!recordingNow) {
+    dormantBanner.classList.add('hidden');
+    activePanel.classList.remove('dormant');
+    return;
+  }
+  const cov = currentSiteCoverage();
+  if (cov === 'covered') {
+    dormantBanner.classList.add('hidden');
+    activePanel.classList.remove('dormant');
+    return;
+  }
+  activePanel.classList.add('dormant');
+  dormantBanner.classList.remove('hidden');
+  const host = accessState.site?.host || 'This page';
+  if (cov === 'denied') {
+    dormantText.textContent = `${host} is on your denied list, so it is not recorded. Remove it from Denied sites to record here.`;
+    dormantGrant.classList.add('hidden');
+  } else if (cov === 'restricted') {
+    dormantText.textContent = 'This browser page cannot be recorded.';
+    dormantGrant.classList.add('hidden');
+  } else if (cov === 'notallowed') {
+    dormantText.textContent = `${host} is not in your allowed sites, so it is not recorded. Grant it to record here.`;
+    dormantGrant.classList.remove('hidden');
+  } else {
+    dormantText.textContent = `${host} is not being recorded. Grant access to record it.`;
+    dormantGrant.classList.remove('hidden');
+  }
+}
+
+dormantGrant.addEventListener('click', () => { grantCurrentSite(); });
+manageAccessBtn.addEventListener('click', (e) => { e.preventDefault(); openPermissionsPage(); });
 const stopBtn = $('stop');
+
 const pauseBtn = $('pause');
 const markWaitingBtn = $('mark-waiting');
 const pausedBanner = $('paused-banner');
@@ -74,9 +159,11 @@ const postStopBanner = $('post-stop-banner');
 const ERROR_STORAGE_KEY = 'lastError';
 const MIC_DEVICE_STORAGE_KEY = 'micDeviceId';
 const ACTIVE_PROJECT_STORAGE_KEY = 'activeProjectName';
-const CAPTURE_SHOTS_STORAGE_KEY = 'captureShots';
 const CAPTURE_NETWORK_STORAGE_KEY = 'captureNetwork';
 const CAPTURE_NETWORK_BODY_STORAGE_KEY = 'captureNetworkBody';
+const CAPTURE_SHORTCUTS_STORAGE_KEY = 'captureShortcuts';
+const CAPTURE_SELECTION_STORAGE_KEY = 'captureSelection';
+const CAPTURE_GESTURES_STORAGE_KEY = 'captureGestures';
 
 // ───────────────────────────────────────────────────────────────────────
 // Helpers
@@ -176,8 +263,12 @@ function errFromResponse(res) {
 // Microphone: device picker + permission indicator
 // ───────────────────────────────────────────────────────────────────────
 function updateMicDeviceVisibility() {
-  if (micInput.checked) micDeviceRow.classList.remove('hidden');
-  else micDeviceRow.classList.add('hidden');
+  const on = micInput.checked;
+  micDeviceRow.classList.toggle('hidden', !on);
+  const micStatus = $('mic-status');
+  const micWhy = $('mic-why');
+  if (micStatus) micStatus.classList.toggle('hidden', !on);
+  if (micWhy) micWhy.classList.toggle('hidden', !on);
 }
 
 async function refreshMicDevices() {
@@ -213,10 +304,6 @@ micDeviceSelect.addEventListener('change', async () => {
 });
 micInput.addEventListener('change', updateMicDeviceVisibility);
 
-captureShotsInput.addEventListener('change', async () => {
-  try { await chrome.storage.local.set({ [CAPTURE_SHOTS_STORAGE_KEY]: captureShotsInput.checked }); } catch {}
-});
-
 function updateNetworkBodyAvailability() {
   const on = captureNetworkInput.checked;
   captureNetworkBodyInput.disabled = !on;
@@ -230,16 +317,31 @@ captureNetworkBodyInput.addEventListener('change', async () => {
   try { await chrome.storage.local.set({ [CAPTURE_NETWORK_BODY_STORAGE_KEY]: captureNetworkBodyInput.checked }); } catch {}
 });
 
+const captureToggleStore = new Map([
+  [captureShortcutsInput, CAPTURE_SHORTCUTS_STORAGE_KEY],
+  [captureSelectionInput, CAPTURE_SELECTION_STORAGE_KEY],
+  [captureGesturesInput, CAPTURE_GESTURES_STORAGE_KEY],
+]);
+for (const [input, key] of captureToggleStore) {
+  input.addEventListener('change', async () => {
+    try { await chrome.storage.local.set({ [key]: input.checked }); } catch {}
+  });
+}
+
 async function restoreCaptureSettings() {
   try {
     const got = await chrome.storage.local.get([
-      CAPTURE_SHOTS_STORAGE_KEY,
       CAPTURE_NETWORK_STORAGE_KEY,
       CAPTURE_NETWORK_BODY_STORAGE_KEY,
+      CAPTURE_SHORTCUTS_STORAGE_KEY,
+      CAPTURE_SELECTION_STORAGE_KEY,
+      CAPTURE_GESTURES_STORAGE_KEY,
     ]);
-    if (typeof got[CAPTURE_SHOTS_STORAGE_KEY] === 'boolean') captureShotsInput.checked = got[CAPTURE_SHOTS_STORAGE_KEY];
     if (typeof got[CAPTURE_NETWORK_STORAGE_KEY] === 'boolean') captureNetworkInput.checked = got[CAPTURE_NETWORK_STORAGE_KEY];
     if (typeof got[CAPTURE_NETWORK_BODY_STORAGE_KEY] === 'boolean') captureNetworkBodyInput.checked = got[CAPTURE_NETWORK_BODY_STORAGE_KEY];
+    if (typeof got[CAPTURE_SHORTCUTS_STORAGE_KEY] === 'boolean') captureShortcutsInput.checked = got[CAPTURE_SHORTCUTS_STORAGE_KEY];
+    if (typeof got[CAPTURE_SELECTION_STORAGE_KEY] === 'boolean') captureSelectionInput.checked = got[CAPTURE_SELECTION_STORAGE_KEY];
+    if (typeof got[CAPTURE_GESTURES_STORAGE_KEY] === 'boolean') captureGesturesInput.checked = got[CAPTURE_GESTURES_STORAGE_KEY];
   } catch {}
   updateNetworkBodyAvailability();
 }
@@ -258,6 +360,9 @@ async function refreshMicStatus() {
   if (s === 'granted') {
     micDot.classList.add('granted');
     micText.textContent = 'permission granted';
+    // Clear the "grant mic then try again" notice once it is actually granted
+    // (this fires via the permission-state onchange after the grant tab closes).
+    clearError();
     micManage.textContent = 'revoke';
   } else if (s === 'denied') {
     micDot.classList.add('denied');
@@ -277,6 +382,13 @@ micManage.addEventListener('click', (e) => {
   e.preventDefault();
   chrome.tabs.create({ url: 'chrome://settings/content/microphone' });
 });
+
+// Returning to the panel (e.g. after granting mic or all-sites access in a tab)
+// rechecks permissions so stale notices clear without a manual retry.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { refreshMicStatus(); refreshAccessUI(); }
+});
+window.addEventListener('focus', () => { refreshMicStatus(); refreshAccessUI(); });
 
 async function ensureMicPermission() {
   try {
@@ -464,11 +576,389 @@ projectRemoveBtn.addEventListener('click', async () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
+// Site access and broad-capability config
+// ───────────────────────────────────────────────────────────────────────
+const ALL_SITES_PATTERN = '<all_urls>';
+const WEB_PROTOCOLS = new Set(['http:', 'https:']);
+const RESTRICTED_PROTOCOLS = new Set([
+  'about:', 'chrome:', 'chrome-extension:', 'view-source:',
+]);
+
+let accessConfig = { ...DEFAULT_CONFIG };
+let configReady = false;
+let configTogglePending = null;
+let configToggleDesired = null;
+let currentGrantPending = false;
+let startPending = false;
+let accessRefreshSequence = 0;
+
+const accessState = {
+  loading: true,
+  site: null,
+  grantedOrigins: [],
+  permissionsKnown: false,
+  hasAllSites: false,
+  currentGranted: false,
+};
+
+function setInlineFeedback(el, message, tone = 'warn') {
+  el.textContent = message || '';
+  el.classList.toggle('hidden', !message);
+  el.classList.toggle('ok', tone === 'ok');
+}
+
+function restrictedSite(reason) {
+  return { host: null, pattern: null, url: null, reason };
+}
+
+function siteFromTab(tab) {
+  const rawUrl = tab?.pendingUrl || tab?.url;
+  if (!rawUrl) return restrictedSite('The current tab URL is unavailable.');
+
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return restrictedSite('The current tab URL cannot be used for site access.');
+  }
+
+  if (RESTRICTED_PROTOCOLS.has(url.protocol)) {
+    return restrictedSite(`${url.protocol} pages do not allow extension site access.`);
+  }
+  if (url.protocol === 'file:' && !url.hostname) {
+    return restrictedSite('Local file pages without a host cannot be granted site access.');
+  }
+  if (!WEB_PROTOCOLS.has(url.protocol) || !url.hostname) {
+    return restrictedSite('Open an http or https site to grant recording access.');
+  }
+
+  const input = `${url.protocol}//${url.hostname}/*`;
+  if (!isValidPattern(input)) {
+    return restrictedSite('This site address cannot be represented as a Chrome match pattern.');
+  }
+
+  return {
+    host: url.hostname,
+    pattern: canonicalize(input),
+    url: rawUrl,
+    reason: null,
+  };
+}
+
+async function queryCurrentSite() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return siteFromTab(tab);
+  } catch {
+    return restrictedSite('Recaptain could not inspect the current tab.');
+  }
+}
+
+async function getGrantedOrigins() {
+  try {
+    const permissions = await chrome.permissions.getAll();
+    return [...new Set((permissions?.origins || []).filter((origin) => typeof origin === 'string'))]
+      .sort((a, b) => {
+        if (a === ALL_SITES_PATTERN) return -1;
+        if (b === ALL_SITES_PATTERN) return 1;
+        return a.localeCompare(b);
+      });
+  } catch {
+    return null;
+  }
+}
+
+function accessInteractionPending() {
+  return Boolean(
+    currentGrantPending
+    || configTogglePending
+    || startPending
+  );
+}
+
+function renderStartAvailability() {
+  // Start records with whatever access is already granted; it never requests
+  // access itself. So it stays disabled until the current site is covered by a
+  // per-site grant or all-sites access.
+  startBtn.disabled = accessInteractionPending()
+    || !configReady
+    || accessState.loading
+    || !accessState.site?.pattern
+    || !accessState.currentGranted;
+}
+
+// Screenshots and follow-across-tabs live in the Additional-features box and are
+// only meaningful under all-sites access. When all-sites is granted the toggles
+// are plain config writes (no permission prompt); otherwise the box shows the
+// grant button instead of the toggles.
+function renderCaptureConfig() {
+  const pending = accessInteractionPending();
+  captureShotsInput.checked = configTogglePending === 'captureShots'
+    ? Boolean(configToggleDesired)
+    : Boolean(accessConfig.captureShots);
+  followTabsInput.checked = configTogglePending === 'followTabs'
+    ? Boolean(configToggleDesired)
+    : Boolean(accessConfig.followTabs);
+  // Toggles are plain prefs; they never prompt. The hint links to Permissions
+  // when a broad pref is on without all-sites access.
+  captureShotsInput.disabled = !configReady || pending;
+  followTabsInput.disabled = !configReady || pending;
+  const needsGrant = (accessConfig.captureShots || accessConfig.followTabs) && !accessState.hasAllSites;
+  captureHint.classList.toggle('hidden', !needsGrant);
+  renderStartAvailability();
+}
+
+// Short status word shown in the header pill; the accent bar color is driven by
+// the data-state on the card.
+function setAccessState(state, pill, allowQuickGrant = true) {
+  accessSection.dataset.state = state;
+  scopeText.textContent = pill;
+  // The "+" quick-grant only makes sense for granting the current site.
+  const canQuickGrant = allowQuickGrant && state === 'ungranted' && !accessInteractionPending();
+  quickGrantBtn.classList.toggle('hidden', !canQuickGrant);
+}
+
+// The sidebar shows only the CURRENT site's access + a link to the Permissions
+// page. Record mode, the allowlist, and the denylist are edited there.
+function renderAccessUI() {
+  const allMode = accessConfig.recordMode === 'all';
+  accessWhy.classList.add('hidden');
+  accessGranted.classList.add('hidden');
+  accessRestricted.classList.add('hidden');
+
+  if (allMode) {
+    const granted = accessState.hasAllSites;
+    setAccessState(granted ? 'granted' : 'ungranted', granted ? 'all sites' : 'needs grant', false);
+    if (granted) {
+      accessGranted.classList.remove('hidden');
+      accessGrantedCopy.textContent = 'Recording all sites (except denied).';
+      scopeRevoke.classList.add('hidden');
+    } else {
+      accessRestricted.classList.remove('hidden');
+      accessRestrictedCopy.textContent = 'All-sites mode needs all-sites access. Grant it in Permissions.';
+    }
+  } else if (accessState.loading) {
+    setAccessState('loading', 'checking');
+    accessWhy.classList.remove('hidden');
+    accessWhyHost.textContent = 'this site';
+    grantCurrentAccessBtn.textContent = 'Grant access';
+    grantCurrentAccessBtn.disabled = true;
+  } else if (!accessState.site?.pattern) {
+    setAccessState('restricted', 'unavailable');
+    accessRestricted.classList.remove('hidden');
+    accessRestrictedCopy.textContent = accessState.site?.reason || 'Site access is unavailable on this page.';
+  } else if (accessState.currentGranted) {
+    setAccessState('granted', accessState.hasAllSites ? 'all sites' : 'granted');
+    accessGranted.classList.remove('hidden');
+    accessGrantedCopy.textContent = accessState.hasAllSites
+      ? `${accessState.site.host} is covered by all-sites access.`
+      : `${accessState.site.host} is ready to record.`;
+    const perSiteGrant = !accessState.hasAllSites
+      && accessState.grantedOrigins.includes(accessState.site.pattern);
+    scopeRevoke.classList.toggle('hidden', !perSiteGrant);
+    scopeRevoke.disabled = accessInteractionPending();
+  } else {
+    setAccessState('ungranted', 'not granted');
+    accessWhy.classList.remove('hidden');
+    accessWhyHost.textContent = accessState.site.host;
+    grantCurrentAccessBtn.textContent = `Grant ${accessState.site.host}`;
+    grantCurrentAccessBtn.disabled = accessInteractionPending();
+  }
+
+  modeSummary.textContent = allMode ? 'Recording all sites.' : 'Recording allowed sites only.';
+  renderCaptureConfig();
+  renderDormant();
+}
+
+async function refreshAccessUI() {
+  const sequence = ++accessRefreshSequence;
+  const [site, grantedOrigins] = await Promise.all([
+    queryCurrentSite(),
+    getGrantedOrigins(),
+  ]);
+
+  let currentGranted = false;
+  if (site.pattern) {
+    try {
+      currentGranted = await chrome.permissions.contains({ origins: [site.pattern] });
+    } catch {}
+  }
+  if (sequence !== accessRefreshSequence) return;
+
+  accessState.loading = false;
+  accessState.site = site;
+  accessState.grantedOrigins = grantedOrigins || [];
+  accessState.permissionsKnown = Array.isArray(grantedOrigins);
+  accessState.hasAllSites = accessState.grantedOrigins.includes(ALL_SITES_PATTERN);
+  accessState.currentGranted = currentGranted;
+  renderAccessUI();
+}
+
+async function loadAccessConfig() {
+  accessConfig = await getConfig();
+  configReady = true;
+  renderAccessUI();
+}
+
+onConfigChanged((next) => {
+  accessConfig = next;
+  configReady = true;
+  renderAccessUI();
+});
+
+// Screenshots and follow-tabs are plain preferences: toggling never prompts.
+// They need all-sites access to take effect, which is granted on the Permissions
+// page; the capture hint points there when a pref is on without the grant.
+async function updateBroadCapability(key, input) {
+  if (configTogglePending) {
+    input.checked = Boolean(accessConfig[key]);
+    return;
+  }
+  const desired = input.checked;
+  const previous = Boolean(accessConfig[key]);
+  configTogglePending = key;
+  configToggleDesired = desired;
+  renderCaptureConfig();
+  try {
+    accessConfig = await setConfig({ [key]: desired });
+    configReady = true;
+  } catch (err) {
+    input.checked = previous;
+    await showError(err);
+  } finally {
+    configTogglePending = null;
+    configToggleDesired = null;
+    renderCaptureConfig();
+  }
+}
+
+captureShotsInput.addEventListener('change', () => {
+  updateBroadCapability('captureShots', captureShotsInput);
+});
+followTabsInput.addEventListener('change', () => {
+  updateBroadCapability('followTabs', followTabsInput);
+});
+
+async function grantCurrentSite() {
+  const site = accessState.site;
+  if (!site?.pattern) return;
+  currentGrantPending = true;
+  renderAccessUI();
+  setInlineFeedback(accessFeedback, '');
+
+  try {
+    // The request runs directly under this click's user gesture.
+    const granted = await chrome.permissions.request({ origins: [site.pattern] });
+    if (granted) {
+      setInlineFeedback(accessFeedback, `Access to ${site.host} was granted.`, 'ok');
+      // Collapse once granted; the summary now shows the granted state.
+      accessSection.open = false;
+    } else {
+      setInlineFeedback(accessFeedback, `Access to ${site.host} was not granted.`);
+    }
+  } catch (err) {
+    setInlineFeedback(accessFeedback, `Access to ${site.host} could not be requested.`);
+    await showError(err);
+  } finally {
+    currentGrantPending = false;
+    await refreshAccessUI();
+  }
+}
+
+grantCurrentAccessBtn.addEventListener('click', grantCurrentSite);
+
+// Quick-grant "+" in the collapsed summary: grant without expanding the card.
+quickGrantBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  grantCurrentSite();
+});
+
+async function removeGrantedOrigin(origin, button) {
+  button.disabled = true;
+  try {
+    const removed = await chrome.permissions.remove({ origins: [origin] });
+    if (removed) {
+      setInlineFeedback(
+        accessFeedback,
+        origin === ALL_SITES_PATTERN ? 'All-sites access was removed.' : `${origin} was removed.`,
+        'ok',
+      );
+    } else {
+      setInlineFeedback(accessFeedback, `${origin} was not removed.`);
+    }
+  } catch (err) {
+    setInlineFeedback(accessFeedback, `${origin} could not be removed.`);
+    await showError(err);
+  } finally {
+    button.disabled = accessInteractionPending();
+    await refreshAccessUI();
+  }
+}
+
+scopeRevoke.addEventListener('click', () => {
+  // Per-site removal only. All-sites is revoked from the features box.
+  const pattern = accessState.site?.pattern;
+  if (pattern && !accessState.hasAllSites && accessState.grantedOrigins.includes(pattern)) {
+    removeGrantedOrigin(pattern, scopeRevoke);
+  }
+});
+
+if (chrome.permissions?.onAdded) {
+  chrome.permissions.onAdded.addListener(() => {
+    refreshAccessUI();
+  });
+}
+if (chrome.permissions?.onRemoved) {
+  chrome.permissions.onRemoved.addListener(() => {
+    refreshAccessUI();
+  });
+}
+
+if (chrome.tabs?.onActivated) {
+  chrome.tabs.onActivated.addListener(() => {
+    refreshAccessForCurrentTab();
+  });
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (tab?.active && (changeInfo.url || changeInfo.status === 'complete')) {
+      refreshAccessForCurrentTab();
+    }
+  });
+}
+
+function refreshAccessForCurrentTab() {
+  accessState.loading = true;
+  accessState.site = null;
+  setInlineFeedback(accessFeedback, '');
+  renderAccessUI();
+  refreshAccessUI();
+}
+
+
+// ───────────────────────────────────────────────────────────────────────
 // Start / Stop
 // ───────────────────────────────────────────────────────────────────────
 startBtn.addEventListener('click', async () => {
-  startBtn.disabled = true;
+  const site = accessState.site;
+  const needsAllSites = Boolean(accessConfig.captureShots || accessConfig.followTabs);
+  startPending = true;
+  renderAccessUI();
   try {
+    if (!site?.pattern) {
+      throw new Error(site?.reason || 'Open an http or https site before starting a recording.');
+    }
+
+    // Start records with access that is ALREADY granted; it never requests
+    // access itself (that is what the grant buttons are for). The button is
+    // disabled without access, so this is a defensive re-check against the tab
+    // changing between render and click.
+    await refreshAccessUI();
+    if (!accessState.site?.pattern || !accessState.currentGranted) {
+      throw new Error(`Grant access to ${site.host} before recording.`);
+    }
+    if (needsAllSites && !accessState.hasAllSites) {
+      throw new Error('Screenshots and following across tabs need all-sites access. Grant it under Additional features, or turn those options off.');
+    }
     // Folder permission FIRST: ensureMicPermission may open a tab, which
     // consumes the click's user-gesture token and would make a later
     // requestPermission() prompt fail.
@@ -488,6 +978,19 @@ startBtn.addEventListener('click', async () => {
     if (micInput.checked) {
       await ensureMicPermission();
     }
+
+    await refreshAccessUI();
+    const finalNeedsAllSites = Boolean(accessConfig.captureShots || accessConfig.followTabs);
+    if (accessState.site?.pattern !== site.pattern) {
+      throw new Error('The active tab changed before recording started. Check its access and try again.');
+    }
+    if (!accessState.currentGranted) {
+      throw new Error(`Access to ${site.host} was removed before recording started.`);
+    }
+    if (finalNeedsAllSites && !accessState.hasAllSites) {
+      throw new Error('All-sites access is required by the enabled capture options.');
+    }
+
     hidePostStopBanner();
     const res = await chrome.runtime.sendMessage({
       type: 'recorder:start',
@@ -495,9 +998,12 @@ startBtn.addEventListener('click', async () => {
       description: descriptionInput.value.trim() || null,
       mic: micInput.checked,
       micDeviceId: micInput.checked ? (micDeviceSelect.value || null) : null,
-      captureShots: captureShotsInput.checked,
+      captureShots: Boolean(accessConfig.captureShots),
       captureNetwork: captureNetworkInput.checked,
       captureNetworkBody: captureNetworkInput.checked && captureNetworkBodyInput.checked,
+      captureShortcuts: captureShortcutsInput.checked,
+      captureSelection: captureSelectionInput.checked,
+      captureGestures: captureGesturesInput.checked,
     });
     const resErr = errFromResponse(res);
     if (resErr) throw resErr;
@@ -506,7 +1012,8 @@ startBtn.addEventListener('click', async () => {
   } catch (err) {
     await showError(err);
   } finally {
-    startBtn.disabled = false;
+    startPending = false;
+    renderAccessUI();
   }
 });
 
@@ -710,6 +1217,7 @@ function renderTimer(s) {
 
 function renderRecordingState(s) {
   if (s.recording) {
+    recordingNow = true;
     idlePanel.classList.add('hidden');
     activePanel.classList.remove('hidden');
     const statusLabel = s.paused ? 'paused' : (s.waiting ? 'waiting' : 'recording');
@@ -737,7 +1245,11 @@ function renderRecordingState(s) {
     consoleCountEl.textContent = `${s.consoleCount ?? 0} logs`;
     tabsCountEl.textContent = `${s.tabsCount ?? 1} tab${(s.tabsCount ?? 1) === 1 ? '' : 's'}`;
     renderMeter(s);
+    refreshAccessUI();
+    renderDormant();
   } else {
+    recordingNow = false;
+    renderDormant();
     idlePanel.classList.remove('hidden');
     activePanel.classList.add('hidden');
     statusEl.textContent = 'idle';
@@ -858,6 +1370,15 @@ function summaryHTML(e) {
     }
     case 'landmark_snapshot':
       return `<span class="muted">landmark · ${escapeHTML(e.title || e.url || '')}</span>`;
+    case 'shortcut':
+      return `<span class="muted">⌨</span> <span>${escapeHTML(e.combo || e.key || '')}</span>`;
+    case 'selection': {
+      const who = e.target ? `<span class="muted">in ${escapeHTML(targetLabel(e.target))}</span> ` : '';
+      const body = e.is_masked ? `<span class="muted">[masked · ${e.length ?? 0} chars]</span>` : escapeHTML((e.text || '').slice(0, 120));
+      return `${who}<span class="muted">selected</span> ${body}`;
+    }
+    case 'highlight':
+      return `<span class="muted">◯ circled</span> ${escapeHTML(targetLabel(e.target))}`;
     default:
       return `<span class="muted">${escapeHTML(e.kind)}</span>`;
   }
@@ -1001,7 +1522,10 @@ function connect() {
 // ───────────────────────────────────────────────────────────────────────
 restoreError();
 restoreCaptureSettings();
+renderCaptureConfig();
+loadAccessConfig();
 refreshStatus();
+refreshAccessUI();
 refreshMicStatus();
 updateMicDeviceVisibility();
 refreshMicDevices();

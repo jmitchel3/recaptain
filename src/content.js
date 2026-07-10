@@ -37,6 +37,10 @@ let consoleInstalled = false;
 let networkUninstall = null;
 let waitingUninstall = null;
 let assertionUninstall = null;
+// Toggleable capture options (defaults; overridden by start opts).
+let captureShortcuts = true; // cmd/ctrl/alt + key as `shortcut` events
+let captureSelection = true; // text highlight as `selection` events
+let captureGestures = false; // lasso/circle around an element as `highlight`
 const activityQueue = [];
 let flushTimer = null;
 const inputDebounce = new WeakMap(); // element → timeout id
@@ -287,15 +291,48 @@ function onAuxClick(e) {
   onClick(e);
 }
 
+const NAV_KEYS = new Set(['Enter', 'Escape', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', ' ']);
+const IS_MAC = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
+
+// Human-readable combo like "cmd+c" / "ctrl+shift+k".
+function comboString(e, key) {
+  const parts = [];
+  if (e.ctrlKey) parts.push('ctrl');
+  if (e.metaKey) parts.push(IS_MAC ? 'cmd' : 'meta');
+  if (e.altKey) parts.push(IS_MAC ? 'opt' : 'alt');
+  if (e.shiftKey) parts.push('shift');
+  parts.push(key.length === 1 ? key.toLowerCase() : key);
+  return parts.join('+');
+}
+
 function onKeyDown(e) {
   if (!recording) return;
   if (window.__recaptainAssertionActive) return;
-  // Only meaningful keys: typing flow is captured via input events (debounced).
   const K = e.key;
-  const meaningful = new Set(['Enter', 'Escape', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', ' ']);
-  if (!meaningful.has(K) && !(e.metaKey || e.ctrlKey)) return;
   const target = e.target instanceof Element ? e.target : null;
   if (target?.closest?.('.recaptain-ignore, [data-recaptain-block]')) return;
+
+  // A modifier combo (cmd/ctrl/alt + a real key) is a shortcut. Bare modifier
+  // presses and the plain typing flow (captured via input events) are ignored.
+  const isModifierKey = K === 'Meta' || K === 'Control' || K === 'Shift' || K === 'Alt' || K === 'AltGraph';
+  const isCombo = (e.metaKey || e.ctrlKey || e.altKey) && !isModifierKey;
+  if (isCombo) {
+    if (!captureShortcuts) return;
+    emitActivity({
+      kind: 'shortcut',
+      ts: Date.now(),
+      url: scrubUrl(location.href),
+      combo: comboString(e, K),
+      key: K,
+      code: e.code,
+      modifiers: modifierKeys(e),
+      target: target ? describeElement(target) : null,
+    });
+    return;
+  }
+
+  // Otherwise only meaningful navigation keys.
+  if (!NAV_KEYS.has(K)) return;
   emitActivity({
     kind: 'key',
     ts: Date.now(),
@@ -304,6 +341,86 @@ function onKeyDown(e) {
     code: e.code,
     modifiers: modifierKeys(e),
     target: target ? describeElement(target) : null,
+  });
+}
+
+// --- text selection (highlight) ---------------------------------------
+let selectionTimer = null;
+let lastSelectionText = null;
+function onSelectionChange() {
+  if (!recording || !captureSelection) return;
+  if (selectionTimer) clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(emitSelection, 400);
+}
+function emitSelection() {
+  const sel = window.getSelection?.();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) { lastSelectionText = null; return; }
+  const text = sel.toString().replace(/\s+/g, ' ').trim();
+  if (text.length < 2) { lastSelectionText = null; return; }
+  if (text === lastSelectionText) return; // dedup while the selection grows/settles
+  lastSelectionText = text;
+  const node = sel.anchorNode;
+  const anchorEl = node instanceof Element ? node : (node?.parentElement || null);
+  if (anchorEl?.closest?.('.recaptain-ignore, [data-recaptain-block]')) return;
+  const masked = anchorEl ? shouldMaskField(anchorEl) : false;
+  const entry = {
+    kind: 'selection',
+    ts: Date.now(),
+    url: scrubUrl(location.href),
+    length: text.length,
+    is_masked: masked,
+    target: anchorEl ? describeElement(anchorEl) : null,
+  };
+  if (!masked) entry.text = text.slice(0, MAX_TEXT_LEN);
+  emitActivity(entry);
+}
+
+// --- lasso / circle gesture around an element -------------------------
+const mousePts = [];
+let lastCircleAt = 0;
+function onMouseMove(e) {
+  if (!recording || !captureGestures) return;
+  const now = e.timeStamp || Date.now();
+  mousePts.push({ x: e.clientX, y: e.clientY, t: now });
+  while (mousePts.length && now - mousePts[0].t > 1500) mousePts.shift();
+  detectCircle(now);
+}
+function detectCircle(now) {
+  if (mousePts.length < 14 || now - lastCircleAt < 1200) return;
+  let cx = 0; let cy = 0;
+  let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
+  for (const p of mousePts) {
+    cx += p.x; cy += p.y;
+    if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+  }
+  cx /= mousePts.length; cy /= mousePts.length;
+  const w = maxX - minX; const h = maxY - minY;
+  const maxDim = Math.max(w, h);
+  if (maxDim < 30 || maxDim > 500) return; // too small (jitter) or too large (not a circle)
+  // Cumulative turning angle around the centroid; a full loop is ~2*PI.
+  let total = 0;
+  for (let i = 1; i < mousePts.length; i++) {
+    const a1 = Math.atan2(mousePts[i - 1].y - cy, mousePts[i - 1].x - cx);
+    let d = Math.atan2(mousePts[i].y - cy, mousePts[i].x - cx) - a1;
+    if (d > Math.PI) d -= 2 * Math.PI;
+    else if (d < -Math.PI) d += 2 * Math.PI;
+    total += d;
+  }
+  if (Math.abs(total) < Math.PI * 1.75) return; // less than ~315 degrees swept
+  lastCircleAt = now;
+  mousePts.length = 0;
+  let el = null;
+  try { el = document.elementFromPoint(cx, cy); } catch {}
+  if (el?.closest?.('.recaptain-ignore, [data-recaptain-block]')) return;
+  emitActivity({
+    kind: 'highlight',
+    ts: Date.now(),
+    url: scrubUrl(location.href),
+    method: 'circle',
+    center: { x: Math.round(cx), y: Math.round(cy) },
+    radius: Math.round(maxDim / 2),
+    target: el ? describeElement(el) : null,
   });
 }
 
@@ -503,6 +620,9 @@ function installConsoleHook() {
 function start(opts = {}) {
   if (recording) return;
   recording = true;
+  captureShortcuts = opts.captureShortcuts !== false;
+  captureSelection = opts.captureSelection !== false;
+  captureGestures = !!opts.captureGestures;
   installConsoleHook();
   document.addEventListener('click', onClick, true);
   document.addEventListener('auxclick', onAuxClick, true);
@@ -512,6 +632,8 @@ function start(opts = {}) {
   document.addEventListener('submit', onSubmit, true);
   document.addEventListener('focus', onFocus, true);
   window.addEventListener('scroll', onScroll, { passive: true });
+  if (captureSelection) document.addEventListener('selectionchange', onSelectionChange);
+  if (captureGestures) document.addEventListener('mousemove', onMouseMove, { passive: true });
 
   if (opts.captureNetwork && !networkUninstall) {
     networkUninstall = installNetworkCapture({
@@ -568,6 +690,8 @@ function stop() {
   document.removeEventListener('submit', onSubmit, true);
   document.removeEventListener('focus', onFocus, true);
   window.removeEventListener('scroll', onScroll);
+  document.removeEventListener('selectionchange', onSelectionChange);
+  document.removeEventListener('mousemove', onMouseMove);
   flush();
 }
 
@@ -577,6 +701,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     start({
       captureNetwork: !!msg.captureNetwork,
       captureNetworkBody: !!msg.captureNetworkBody,
+      captureShortcuts: msg.captureShortcuts !== false,
+      captureSelection: msg.captureSelection !== false,
+      captureGestures: !!msg.captureGestures,
     });
     sendResponse({ ok: true });
     return;
@@ -605,6 +732,9 @@ chrome.runtime.sendMessage({ type: 'recorder:content-ready', url: scrubUrl(locat
       start({
         captureNetwork: !!res.captureNetwork,
         captureNetworkBody: !!res.captureNetworkBody,
+        captureShortcuts: res.captureShortcuts !== false,
+        captureSelection: res.captureSelection !== false,
+        captureGestures: !!res.captureGestures,
       });
     }
   })

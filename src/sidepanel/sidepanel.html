@@ -9,7 +9,15 @@
   <header class="top">
     <div class="title-row">
       <div class="title">Recaptain</div>
-      <div id="status" class="status">idle</div>
+      <div class="title-right">
+        <button id="open-options" class="icon-btn" title="Settings and policy" aria-label="Settings and policy">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/>
+          </svg>
+        </button>
+        <div id="status" class="status">idle</div>
+      </div>
     </div>
   </header>
 
@@ -42,7 +50,7 @@
       </label>
 
       <label class="toggle">
-        <input id="mic" type="checkbox" checked>
+        <input id="mic" type="checkbox">
         <span>Record microphone</span>
       </label>
       <div class="mic-device-row" id="mic-device-row">
@@ -55,11 +63,10 @@
         <span class="mic-text" id="mic-text">checking…</span>
         <a href="#" id="mic-manage" class="link">manage</a>
       </div>
-
-      <label class="toggle">
-        <input id="capture-shots" type="checkbox" checked>
-        <span>Capture screenshots</span>
-      </label>
+      <p class="access-copy muted mic-why" id="mic-why">
+        Records your narration alongside the session, only while recording. Audio
+        stays in the bundle on your device. Turn this off to skip it.
+      </p>
 
       <label class="toggle">
         <input id="capture-network" type="checkbox">
@@ -72,7 +79,76 @@
         </label>
       </div>
 
-      <button id="start" class="primary">Start recording</button>
+      <label class="toggle">
+        <input id="capture-shortcuts" type="checkbox" checked>
+        <span>Track keyboard shortcuts</span>
+      </label>
+      <label class="toggle">
+        <input id="capture-selection" type="checkbox" checked>
+        <span>Track text selection</span>
+      </label>
+      <label class="toggle">
+        <input id="capture-gestures" type="checkbox">
+        <span>Track lasso (circle an element)</span>
+      </label>
+
+      <label class="toggle" id="capture-shots-row">
+        <input id="capture-shots" type="checkbox">
+        <span>Capture screenshots</span>
+      </label>
+      <label class="toggle" id="follow-tabs-row">
+        <input id="follow-tabs" type="checkbox">
+        <span>Follow across tabs</span>
+      </label>
+      <p class="capture-hint muted hidden" id="capture-hint">
+        <span aria-hidden="true">⚠️</span> These need all-sites access to work.
+        <a href="#" id="capture-hint-link" class="link">Grant it in Permissions</a>.
+      </p>
+      <p id="capture-access-feedback" class="capture-access-feedback hidden" role="status"></p>
+
+      <details class="access" id="access-section" data-state="loading">
+        <summary class="access-head">
+          <svg class="access-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z"/>
+          </svg>
+          <span class="scope-label">Site access</span>
+          <span class="scope-pill" id="scope-text">checking</span>
+          <button id="quick-grant" class="quick-grant hidden" type="button"
+            title="Grant access to this site" aria-label="Grant access to this site">+</button>
+          <svg class="features-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        </summary>
+        <div class="access-body">
+          <div class="access-why" id="access-why">
+            <p class="access-copy" id="access-why-copy">
+              Records clicks, console, and network on
+              <span class="host" id="access-why-host">this site</span>, only while recording.
+            </p>
+            <button id="grant-current-access" class="btn-primary access-primary" disabled>
+              Grant access
+            </button>
+          </div>
+
+          <div class="access-granted hidden" id="access-granted">
+            <p class="access-copy" id="access-granted-copy"></p>
+            <button id="scope-revoke" class="btn-ghost scope-revoke hidden">Remove access</button>
+          </div>
+
+          <div class="access-restricted hidden" id="access-restricted">
+            <p class="access-copy" id="access-restricted-copy">
+              Site access is unavailable on this page.
+            </p>
+          </div>
+
+          <p id="access-feedback" class="access-feedback hidden" role="status"></p>
+
+          <p class="access-copy manage-line">
+            <span id="mode-summary"></span>
+            <a href="#" id="manage-access" class="link">Manage sites, record mode, and denylist in Permissions</a>
+          </p>
+        </div>
+      </details>
+
+      <button id="start" class="btn-primary btn-start">Start recording</button>
     </div>
 
     <div id="active-panel" class="panel hidden">
@@ -92,6 +168,10 @@
       </div>
       <div id="paused-banner" class="paused-banner hidden" role="status">paused: timer held. Click Resume when you're back.</div>
       <div id="waiting-banner" class="waiting-banner hidden" role="status">Waiting for page, not counted against session limit.</div>
+      <div id="dormant-banner" class="dormant-banner hidden" role="status">
+        <span id="dormant-text"></span>
+        <button id="dormant-grant" class="btn-primary hidden" type="button">Grant access</button>
+      </div>
       <div id="coverage-line" class="coverage-line hidden"></div>
       <div id="meter-wrap" class="meter-wrap hidden">
         <div class="meter-label">
@@ -141,6 +221,9 @@
           <option value="change">changes</option>
           <option value="submit">submits</option>
           <option value="key">keys</option>
+          <option value="shortcut">shortcuts</option>
+          <option value="selection">selection</option>
+          <option value="highlight">highlight (lasso)</option>
           <option value="focus">focus</option>
           <option value="scroll">scroll</option>
           <option value="navigation">navigation</option>

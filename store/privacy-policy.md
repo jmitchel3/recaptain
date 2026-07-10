@@ -1,6 +1,6 @@
 # Recaptain Privacy Policy
 
-_Last updated: July 9, 2026_
+_Last updated: July 10, 2026_
 
 Recaptain is a Chrome extension that records a browser session (interactions,
 screenshots, console output, network metadata, and optional microphone audio)
@@ -18,7 +18,10 @@ you pick).
 
 While you are recording, Recaptain processes:
 
-- **Page interactions** (clicks, typing, navigation, scrolling) as structured events.
+- **Page interactions** (clicks, typing, navigation, scrolling, and optionally
+  keyboard shortcuts, text selection, and mouse gestures) as structured events.
+  Captured text selection is redaction-aware: selections inside masked fields are
+  stored as a length only.
 - **Screenshots** of the tab you are recording.
 - **Console messages** and uncaught errors from the page.
 - **Network metadata** (URL, method, status, timing) for the page's own requests.
@@ -33,9 +36,14 @@ nowhere but your own disk.
 - It does not send data to the developer or to any third party.
 - It does not include analytics, telemetry, tracking, or remote logging.
 - It does not load or execute any remote code.
-- It does not request any network host permission for itself. The `<all_urls>`
-  host permission is used solely to inject the recorder into the page you choose
-  to record and to capture that tab's screenshot.
+- It does not request any network host permission for itself. Site access is an
+  optional permission that is not granted at install. You grant it deliberately,
+  either for a single site (the current tab) or, if you choose, for all sites,
+  and it is used solely to inject the recorder into the pages you record and to
+  capture those tabs' screenshots. Grants are managed and revocable at any time
+  from the extension's Permissions page and the side panel. A built-in denylist
+  keeps recognized authentication and payment pages out of recordings by default,
+  even under all-sites access.
 
 ## Privacy protections built in
 

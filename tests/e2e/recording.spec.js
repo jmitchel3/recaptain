@@ -33,10 +33,28 @@ function startServer() {
 // recorder via __recaptainTest hooks on the service worker, capture the emitted
 // download, inspect the zip. No sidepanel UI is touched; we're asserting
 // the recorder's output contract, not its buttons.
-async function launch() {
-  // Sanity check: developer forgot to build.
+// The shipped manifest declares <all_urls> as an OPTIONAL host permission,
+// granted at first Start from the sidepanel. That runtime grant cannot be
+// driven headlessly: chrome.permissions.request needs a user gesture and hangs
+// on the native permission bubble that Playwright can't click. So for the test
+// we load a copy of dist with <all_urls> promoted to a REQUIRED host_permission
+// (auto-granted for unpacked extensions, no prompt). This exercises the bundle
+// output contract with full access; the optional-grant UX is tested manually.
+async function buildTestExtDir() {
   try { await fs.access(path.join(EXT_PATH, 'manifest.json')); }
   catch { throw new Error(`Extension not built at ${EXT_PATH}. Run \`npm run build\` first.`); }
+
+  const extDir = await fs.mkdtemp(path.join(os.tmpdir(), 'recaptain-ext-'));
+  await fs.cp(EXT_PATH, extDir, { recursive: true });
+  const manifestPath = path.join(extDir, 'manifest.json');
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+  manifest.host_permissions = ['<all_urls>'];
+  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  return extDir;
+}
+
+async function launch() {
+  const extDir = await buildTestExtDir();
 
   const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'recaptain-e2e-'));
   const context = await chromium.launchPersistentContext(userDataDir, {
@@ -46,8 +64,8 @@ async function launch() {
     headless: false, // new-headless flag set below instead for wider support
     args: [
       '--headless=new',
-      `--disable-extensions-except=${EXT_PATH}`,
-      `--load-extension=${EXT_PATH}`,
+      `--disable-extensions-except=${extDir}`,
+      `--load-extension=${extDir}`,
       '--no-first-run',
       '--no-default-browser-check',
       '--use-fake-ui-for-media-stream',
@@ -60,12 +78,12 @@ async function launch() {
   let [sw] = context.serviceWorkers();
   if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 15_000 });
 
-  return { context, sw, userDataDir };
+  return { context, sw, userDataDir, extDir };
 }
 
 test('records a flow and produces a valid recording bundle', async () => {
   const { server, url } = await startServer();
-  const { context, sw, userDataDir } = await launch();
+  const { context, sw, userDataDir, extDir } = await launch();
   try {
     const page = await context.newPage();
     // Content scripts don't inject on about:blank or data: URLs, so we
@@ -144,5 +162,6 @@ test('records a flow and produces a valid recording bundle', async () => {
     await context.close();
     await new Promise((r) => server.close(() => r()));
     await fs.rm(userDataDir, { recursive: true, force: true });
+    await fs.rm(extDir, { recursive: true, force: true });
   }
 });

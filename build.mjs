@@ -14,6 +14,7 @@ const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const esmEntries = {
   'background': 'src/background.js',
   'offscreen': 'src/offscreen/offscreen.js',
+  'options': 'src/options/options.js',
   'permission': 'src/permission/permission.js',
   'sidepanel': 'src/sidepanel/sidepanel.js',
 };
@@ -35,6 +36,8 @@ async function copyStatic() {
   manifest.version = pkg.version;
   await writeFile('dist/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
   await cp('src/offscreen/offscreen.html', 'dist/offscreen.html');
+  await cp('src/options/options.html', 'dist/options.html');
+  await cp('src/options/options.css', 'dist/options.css');
   await cp('src/permission/permission.html', 'dist/permission.html');
   await cp('src/permission/permission.css', 'dist/permission.css');
   await cp('src/sidepanel/sidepanel.html', 'dist/sidepanel.html');

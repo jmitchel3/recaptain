@@ -4,6 +4,10 @@ import { applyRedactionToBitmap } from './shared/redaction.js';
 import { exportPlaywrightSpec } from './shared/playwright-export.js';
 import { buildPagesJson, buildRecapMd, canonicalUrl } from './shared/recap-export.js';
 import {
+  getConfig, setConfig, getActiveDenylist, onConfigChanged, DEFAULT_CONFIG,
+} from './shared/access-config.js';
+import { canonicalize, compileMatcher } from './shared/match-patterns.js';
+import {
   persistStateSoon, loadPersistedState, clearPersistedState,
   persistScreenshot, loadScreenshots,
 } from './shared/persistence.js';
@@ -41,6 +45,7 @@ const EVENT_KINDS = new Set([
   'network', 'assertion',
   'waiting_start', 'waiting_end',
   'landmark_snapshot',
+  'selection', 'highlight', 'shortcut',
 ]);
 
 const ACTIVITY_MAX = 5000;
@@ -70,10 +75,13 @@ const state = {
   shotBytesTotal: 0,       // cumulative on-disk size of screenshots captured
   shotCompressed: false,   // flipped true once we switched to JPEG
   saveAs: true,            // whether chrome.downloads.download prompts Save As
-  captureShots: true,      // operator toggle: capture screenshots at all
+  captureShots: false,     // cached access config value for bundle/status output
   redactionMode: 'black',  // 'black' | 'blur' | 'off', applied before screenshot encoding
   captureNetwork: false,   // operator toggle: capture fetch/XHR metadata
   captureNetworkBody: false, // sub-toggle: include short JSON response bodies
+  captureShortcuts: true,  // page-side: cmd/ctrl combos as `shortcut` events
+  captureSelection: true,  // page-side: text highlight as `selection` events
+  captureGestures: false,  // page-side: lasso/circle as `highlight` events
   waiting: false,          // between waiting_start and waiting_end, drives throttles
   waitingSince: null,      // Date.now() of current waiting window; null otherwise
   totalWaitingMs: 0,       // cumulative waiting time, closed on each waiting_end
@@ -81,7 +89,17 @@ const state = {
   manualWaiting: false,    // operator-asserted waiting, controls the button label
   primaryNav: null,        // {region_selector, total, items} from content-script detection
   pagesVisited: new Set(), // canonicalUrl Set, powers the coverage widget
+  accessNoteKeys: new Set(), // policy notes already emitted in this recording
 };
+
+let cachedConfig = { ...DEFAULT_CONFIG, denylist: [...DEFAULT_CONFIG.denylist] };
+let cachedActiveDenylist = [];
+let cachedDenyMatcher = compileMatcher([]);
+let cachedGrantedOrigins = [];
+let cachedGrantedMatcher = compileMatcher([]);
+let cachedAllSitesGranted = false;
+let cachedRecordMatcher = compileMatcher([]); // config.allowlist
+let recorderAccessRefresh = Promise.resolve();
 
 // Active (non-paused) milliseconds since recording began. This is what the
 // session time limit gates on: wall clock includes breaks; active time is
@@ -123,12 +141,16 @@ function metaSnapshot() {
     redactionMode: state.redactionMode,
     captureNetwork: state.captureNetwork,
     captureNetworkBody: state.captureNetworkBody,
+    captureShortcuts: state.captureShortcuts,
+    captureSelection: state.captureSelection,
+    captureGestures: state.captureGestures,
     waiting: state.waiting,
     waitingSince: state.waitingSince,
     totalWaitingMs: state.totalWaitingMs,
     manualWaiting: state.manualWaiting,
     primaryNav: state.primaryNav,
     pagesVisited: Array.from(state.pagesVisited),
+    accessNoteKeys: Array.from(state.accessNoteKeys),
   };
 }
 
@@ -199,6 +221,149 @@ function pushActivity(entry) {
   return withId;
 }
 
+function applyActiveDenylist(patterns) {
+  cachedActiveDenylist = Array.isArray(patterns) ? [...patterns] : [];
+  cachedDenyMatcher = compileMatcher(cachedActiveDenylist);
+}
+
+function applyCachedConfig(config) {
+  const denylist = Array.isArray(config?.denylist)
+    ? [...config.denylist]
+    : [...DEFAULT_CONFIG.denylist];
+  cachedConfig = { ...DEFAULT_CONFIG, ...config, denylist };
+  applyActiveDenylist(cachedConfig.denylistEnabled ? denylist : []);
+  recomputeRecordMatcher();
+  if (state.recording) state.captureShots = !!cachedConfig.captureShots;
+}
+
+// Granting a per-site permission implies wanting to record it, so the effective
+// allow set is the config allowlist plus every granted per-site origin.
+function effectiveAllowPatterns() {
+  const set = new Set();
+  for (const p of (Array.isArray(cachedConfig.allowlist) ? cachedConfig.allowlist : [])) {
+    try { set.add(canonicalize(p)); } catch { /* skip invalid */ }
+  }
+  for (const o of cachedGrantedOrigins) if (o !== '<all_urls>') set.add(o);
+  return [...set];
+}
+
+function recomputeRecordMatcher() {
+  cachedRecordMatcher = compileMatcher(effectiveAllowPatterns());
+}
+
+function applyGrantedOrigins(origins) {
+  cachedGrantedOrigins = Array.from(new Set(
+    (Array.isArray(origins) ? origins : []).filter((origin) => typeof origin === 'string'),
+  ));
+  cachedAllSitesGranted = cachedGrantedOrigins.includes('<all_urls>');
+  cachedGrantedMatcher = compileMatcher(
+    cachedGrantedOrigins.filter((origin) => origin !== '<all_urls>'),
+  );
+  recomputeRecordMatcher();
+}
+
+async function refreshCachedAccess() {
+  const config = await getConfig();
+  let permissions = { origins: [] };
+  try { permissions = await chrome.permissions.getAll(); } catch {}
+  applyCachedConfig(config);
+  applyGrantedOrigins(permissions?.origins);
+}
+
+function applyPermissionDelta(perms, added) {
+  const next = new Set(cachedGrantedOrigins);
+  for (const origin of perms?.origins || []) {
+    if (added) next.add(origin);
+    else next.delete(origin);
+  }
+  applyGrantedOrigins(Array.from(next));
+}
+
+function parsePageUrl(url) {
+  try { return new URL(url); } catch { return null; }
+}
+
+function pageHost(url) {
+  return parsePageUrl(url)?.host || null;
+}
+
+function pageOrigin(url) {
+  const parsed = parsePageUrl(url);
+  return parsed?.host ? `${parsed.protocol}//${parsed.host}` : null;
+}
+
+function isInjectablePage(url) {
+  const protocol = parsePageUrl(url)?.protocol;
+  return protocol === 'http:' || protocol === 'https:';
+}
+
+function hasGrantedAccess(url) {
+  if (!isInjectablePage(url)) return false;
+  return cachedAllSitesGranted || cachedGrantedMatcher(url);
+}
+
+// Record policy (separate from Chrome permission): in 'all' mode with all-sites
+// access, everything is in scope; otherwise only the config allowlist is.
+function recordAllowsUrl(url) {
+  if (cachedConfig.recordMode === 'all' && cachedAllSitesGranted) return true;
+  return cachedRecordMatcher(url);
+}
+
+function noteNotAllowed(url) {
+  const host = pageHost(url);
+  if (!host) return null;
+  return pushAccessNoteOnce(`allow:${host}`, `not captured: ${host} is not in the allowed sites`);
+}
+
+function pushAccessNoteOnce(key, text) {
+  if (!state.recording || state.accessNoteKeys.has(key)) return null;
+  state.accessNoteKeys.add(key);
+  return pushActivity({
+    kind: 'note',
+    t: nowT(),
+    ts: Date.now(),
+    text,
+    access_policy: key,
+  });
+}
+
+function noteDeniedPage(url) {
+  const host = pageHost(url);
+  if (!host) return null;
+  return pushAccessNoteOnce(`deny:${host}`, `not captured: ${host} is on the denylist`);
+}
+
+function noteMissingAccess(url) {
+  const host = pageHost(url);
+  if (!host) return null;
+  return pushAccessNoteOnce(`access:${host}`, `no access to ${host}, not captured`);
+}
+
+function noteMissingScreenshotGrant() {
+  return pushAccessNoteOnce(
+    'screenshots:no-all-sites',
+    'screenshots not captured: all-sites access is not granted',
+  );
+}
+
+function senderCanRecord(sender) {
+  if (sender?.tab?.id !== state.tabId) return false;
+  const url = sender?.tab?.url || sender?.url;
+  return hasGrantedAccess(url) && !cachedDenyMatcher(url);
+}
+
+async function getTrackedVisibleTab() {
+  const tabId = state.tabId;
+  if (tabId == null) return null;
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (state.tabId !== tabId || !tab?.active) return null;
+    return tab;
+  } catch {
+    return null;
+  }
+}
+
 function broadcastRecordingState() {
   for (const port of sidepanelPorts) {
     try { port.postMessage({ type: 'recording:state', recording: state.recording, paused: state.paused }); } catch {}
@@ -251,10 +416,13 @@ function reset() {
   state.shotBytesTotal = 0;
   state.shotCompressed = false;
   state.saveAs = true;
-  state.captureShots = true;
+  state.captureShots = false;
   state.redactionMode = 'black';
   state.captureNetwork = false;
   state.captureNetworkBody = false;
+  state.captureShortcuts = true;
+  state.captureSelection = true;
+  state.captureGestures = false;
   state.waiting = false;
   state.waitingSince = null;
   state.totalWaitingMs = 0;
@@ -262,6 +430,14 @@ function reset() {
   state.manualWaiting = false;
   state.primaryNav = null;
   state.pagesVisited = new Set();
+  state.accessNoteKeys = new Set();
+  cachedConfig = { ...DEFAULT_CONFIG, denylist: [...DEFAULT_CONFIG.denylist] };
+  cachedActiveDenylist = [];
+  cachedDenyMatcher = compileMatcher([]);
+  cachedGrantedOrigins = [];
+  cachedGrantedMatcher = compileMatcher([]);
+  cachedAllSitesGranted = false;
+  cachedRecordMatcher = compileMatcher([]);
 }
 
 async function ensureOffscreen({ needMic = false } = {}) {
@@ -290,6 +466,19 @@ async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('no active tab');
   return tab;
+}
+
+// chrome.runtime.sendMessage JSON-serializes its payload, which turns an
+// ArrayBuffer/Uint8Array into an empty object (0 bytes). To hand bundle bytes to
+// the offscreen doc intact we base64-encode them (chunked to avoid a stack
+// overflow on large inputs) and decode on the other side.
+function bytesToBase64(u8) {
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < u8.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
 }
 
 // Decode a data URL into its raw bytes. In-memory this is 33% smaller than
@@ -366,7 +555,24 @@ async function processCapturedShot(pngDataUrl, { compress, rects = [], mode = 'b
 
 async function takeScreenshot(reason) {
   if (!state.recording || state.paused) return null;
-  if (!state.captureShots) return null;
+  if (!cachedConfig.captureShots) return null;
+  if (!cachedAllSitesGranted) {
+    noteMissingScreenshotGrant();
+    return null;
+  }
+
+  const trackedTab = await getTrackedVisibleTab();
+  if (!trackedTab || !hasGrantedAccess(trackedTab.url)) return null;
+  if (cachedDenyMatcher(trackedTab.url)) {
+    noteDeniedPage(trackedTab.url);
+    return null;
+  }
+  if (!recordAllowsUrl(trackedTab.url)) {
+    noteNotAllowed(trackedTab.url);
+    return null;
+  }
+
+  const trackedTabId = trackedTab.id;
   const now = Date.now();
   if (now - state.lastShotAt < SCREENSHOT_EVENT_COOLDOWN_MS) return null;
   state.lastShotAt = now;
@@ -381,9 +587,9 @@ async function takeScreenshot(reason) {
     // Redaction mode 'off' skips the roundtrip entirely.
     let rects = [];
     let dpr = 1;
-    if (state.redactionMode !== 'off' && state.tabId != null) {
+    if (state.redactionMode !== 'off' && trackedTabId != null) {
       try {
-        const resp = await chrome.tabs.sendMessage(state.tabId, { type: 'recorder:collect-mask-rects' });
+        const resp = await chrome.tabs.sendMessage(trackedTabId, { type: 'recorder:collect-mask-rects' });
         rects = Array.isArray(resp?.rects) ? resp.rects : [];
         if (typeof resp?.devicePixelRatio === 'number') dpr = resp.devicePixelRatio;
       } catch {
@@ -392,7 +598,23 @@ async function takeScreenshot(reason) {
       }
     }
 
-    const rawDataUrl = await chrome.tabs.captureVisibleTab({ format: 'png' });
+    // The visible tab can change while mask rects are collected. Recheck the
+    // exact page immediately before capture so an ignored tab switch cannot
+    // photograph a different site.
+    if (!state.recording || state.paused || !cachedConfig.captureShots) return null;
+    if (!cachedAllSitesGranted) {
+      noteMissingScreenshotGrant();
+      return null;
+    }
+    const captureTab = await getTrackedVisibleTab();
+    if (!captureTab || captureTab.id !== trackedTabId || !hasGrantedAccess(captureTab.url)) return null;
+    if (cachedDenyMatcher(captureTab.url)) {
+      noteDeniedPage(captureTab.url);
+      return null;
+    }
+
+    const captureUrl = captureTab.url || state.currentTabUrl;
+    const rawDataUrl = await chrome.tabs.captureVisibleTab(captureTab.windowId, { format: 'png' });
     const { bytes, mime, thumbDataUrl } = await processCapturedShot(rawDataUrl, {
       compress: shouldCompress,
       rects,
@@ -405,8 +627,8 @@ async function takeScreenshot(reason) {
     const shot = {
       t,
       reason: reason || 'periodic',
-      tab_id: state.tabId,
-      url: scrubUrl(state.currentTabUrl),
+      tab_id: trackedTabId,
+      url: scrubUrl(captureUrl),
       bytes,
       mime,
       mask_rects: rects,
@@ -432,8 +654,8 @@ async function takeScreenshot(reason) {
       kind: 'screenshot',
       t,
       reason: reason || 'periodic',
-      tab_id: state.tabId,
-      url: scrubUrl(state.currentTabUrl),
+      tab_id: trackedTabId,
+      url: scrubUrl(captureUrl),
       mime,
       thumb_url: thumbDataUrl, // tiny preview, not the full image
     });
@@ -471,7 +693,7 @@ async function maybeEnforceTimeLimit() {
 // natural "moment" to capture what the UI looked like.
 const SHOT_TRIGGER_KINDS = new Set(['click', 'dblclick', 'change', 'submit', 'navigation', 'tab_switch']);
 
-async function start({ label, mic, micDeviceId, description, saveAs, captureShots, redactionMode, captureNetwork, captureNetworkBody }) {
+async function start({ label, mic, micDeviceId, description, saveAs, redactionMode, captureNetwork, captureNetworkBody, captureShortcuts, captureSelection, captureGestures }) {
   if (state.recording) throw new Error('already recording');
   const tab = await getActiveTab();
   reset();
@@ -482,29 +704,37 @@ async function start({ label, mic, micDeviceId, description, saveAs, captureShot
   state.mic = !!mic;
   state.micDeviceId = micDeviceId || null;
   state.saveAs = saveAs !== false;
-  state.captureShots = captureShots !== false;
   state.redactionMode = (redactionMode === 'blur' || redactionMode === 'off') ? redactionMode : 'black';
   state.captureNetwork = !!captureNetwork;
   state.captureNetworkBody = !!captureNetworkBody;
+  state.captureShortcuts = captureShortcuts !== false;
+  state.captureSelection = captureSelection !== false;
+  state.captureGestures = !!captureGestures;
   state.startUrl = scrubUrl(tab.url || null);
   state.tabId = tab.id;
   state.currentTabUrl = scrubUrl(tab.url || null);
   state.tabTimeline.push({ tab_id: tab.id, url: scrubUrl(tab.url || null), entered_at: state.startedAt, left_at: null });
 
+  // Capture policy is storage-backed and can change during the recording.
+  // Load it before any injection or screenshot path becomes active.
+  await refreshCachedAccess();
+
   // Best-effort viewport snapshot for the starting tab. Fails silently on
   // restricted pages (chrome://, web store, etc.).
   let viewport = null;
-  try {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => ({
-        width: window.innerWidth,
-        height: window.innerHeight,
-        device_scale_factor: window.devicePixelRatio || 1,
-      }),
-    });
-    viewport = res?.result || null;
-  } catch {}
+  if (hasGrantedAccess(tab.url) && !cachedDenyMatcher(tab.url)) {
+    try {
+      const [res] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          device_scale_factor: window.devicePixelRatio || 1,
+        }),
+      });
+      viewport = res?.result || null;
+    } catch {}
+  }
   state.viewport = viewport;
 
   // Offscreen is needed regardless of mic: it's where the bundle blob URL
@@ -518,17 +748,9 @@ async function start({ label, mic, micDeviceId, description, saveAs, captureShot
     }
   }
 
-  await ensureContentScript(tab.id);
-  try {
-    await chrome.tabs.sendMessage(tab.id, {
-      type: 'recorder:begin',
-      captureNetwork: state.captureNetwork,
-      captureNetworkBody: state.captureNetworkBody,
-    });
-  } catch {
-    // Restricted page (chrome://, web store, PDF viewer, etc.); we keep
-    // recording audio + screenshots but won't get DOM events.
-  }
+  // Registration does not cover an already-open document, so the serialized
+  // access refresh also probes and starts the tracked tab when policy allows.
+  await queueRecorderAccessRefresh();
 
   startPeriodicScreenshots();
   broadcastRecordingState();
@@ -568,13 +790,20 @@ async function resume() {
     try { await sendToOffscreen('mic:resume'); } catch {}
   }
   if (state.tabId != null) {
-    try {
-      await chrome.tabs.sendMessage(state.tabId, {
-        type: 'recorder:begin',
-        captureNetwork: state.captureNetwork,
-        captureNetworkBody: state.captureNetworkBody,
-      });
-    } catch {}
+    const tabId = state.tabId;
+    const ready = await ensureContentScript(tabId);
+    if (ready && state.recording && state.tabId === tabId) {
+      try {
+        await chrome.tabs.sendMessage(tabId, {
+          type: 'recorder:begin',
+          captureNetwork: state.captureNetwork,
+          captureNetworkBody: state.captureNetworkBody,
+          captureShortcuts: state.captureShortcuts,
+          captureSelection: state.captureSelection,
+          captureGestures: state.captureGestures,
+        });
+      } catch {}
+    }
   }
   pushActivity({ kind: 'resume', t: activeElapsedMs(), ts: Date.now(), paused_ms: gap });
   broadcastRecordingState();
@@ -582,6 +811,7 @@ async function resume() {
 
 async function handleTabSwitch(newTabId) {
   if (!state.recording || state.paused) return;
+  if (!cachedConfig.followTabs) return;
   if (newTabId === state.tabId) return;
 
   let newTab;
@@ -609,14 +839,19 @@ async function handleTabSwitch(newTabId) {
   state.currentTabUrl = scrubUrl(newTab.url || null);
   state.tabTimeline.push({ tab_id: newTab.id, url: scrubUrl(newTab.url || null), entered_at: now, left_at: null });
 
-  await ensureContentScript(newTab.id);
-  try {
-    await chrome.tabs.sendMessage(newTab.id, {
-      type: 'recorder:begin',
-      captureNetwork: state.captureNetwork,
-      captureNetworkBody: state.captureNetworkBody,
-    });
-  } catch {}
+  const ready = await ensureContentScript(newTab.id);
+  if (ready && state.recording && !state.paused && state.tabId === newTab.id) {
+    try {
+      await chrome.tabs.sendMessage(newTab.id, {
+        type: 'recorder:begin',
+        captureNetwork: state.captureNetwork,
+        captureNetworkBody: state.captureNetworkBody,
+        captureShortcuts: state.captureShortcuts,
+        captureSelection: state.captureSelection,
+        captureGestures: state.captureGestures,
+      });
+    } catch {}
+  }
 
   const shotId = await takeScreenshot('tab_switch');
   if (typeof shotId === 'number') {
@@ -644,10 +879,93 @@ async function handleTabUrlChange(tabId, changeInfo) {
     from: scrubUrl(prevUrl),
     to: scrubbedNext,
   });
+
+  const nextDenied = cachedDenyMatcher(changeInfo.url);
+  const nextGranted = hasGrantedAccess(changeInfo.url);
+  const prevOrigin = pageOrigin(prevUrl);
+  const nextOrigin = pageOrigin(changeInfo.url);
+  if (nextDenied) noteDeniedPage(changeInfo.url);
+  if (nextOrigin && nextOrigin !== prevOrigin && !nextGranted) {
+    noteMissingAccess(changeInfo.url);
+  }
+
+  if (nextDenied || !nextGranted) {
+    // Re-registration only affects future documents. Stop a script that was
+    // already installed if an SPA route enters denied or ungranted scope.
+    try { await chrome.tabs.sendMessage(tabId, { type: 'recorder:end' }); } catch {}
+  } else {
+    const ready = await ensureContentScript(tabId);
+    if (ready && state.recording && !state.paused && state.tabId === tabId) {
+      try {
+        await chrome.tabs.sendMessage(tabId, {
+          type: 'recorder:begin',
+          captureNetwork: state.captureNetwork,
+          captureNetworkBody: state.captureNetworkBody,
+          captureShortcuts: state.captureShortcuts,
+          captureSelection: state.captureSelection,
+          captureGestures: state.captureGestures,
+        });
+      } catch {}
+    }
+  }
+
   const shotId = await takeScreenshot('navigation');
   if (typeof shotId === 'number') {
     navEntry.screenshot_id = shotId;
   }
+}
+
+// Host grants are optional and can be either all-sites or a set of origins.
+// Dynamic registration keeps injection scoped to the active recording.
+const RECORDER_SCRIPT_ID = 'recaptain-recorder';
+
+async function registerRecorderContentScript() {
+  let config = DEFAULT_CONFIG;
+  try { config = await getConfig(); } catch {}
+  applyCachedConfig(config);
+  let permissions = { origins: [] };
+  try { permissions = await chrome.permissions.getAll(); } catch {}
+  applyGrantedOrigins(permissions?.origins);
+  const denylist = cachedActiveDenylist;
+
+  // Register only the record scope: all-sites in 'all' mode; otherwise the
+  // effective allow set, filtered to what Chrome actually permits.
+  let matches;
+  if (cachedConfig.recordMode === 'all' && cachedAllSitesGranted) {
+    matches = ['<all_urls>'];
+  } else {
+    const eff = effectiveAllowPatterns();
+    const grantedSet = new Set(cachedGrantedOrigins);
+    matches = cachedAllSitesGranted ? eff : eff.filter((m) => grantedSet.has(m));
+  }
+  const excludeMatches = [];
+  for (const pattern of denylist) {
+    try { excludeMatches.push(canonicalize(pattern)); } catch {}
+  }
+
+  if (!state.recording) return;
+  await unregisterRecorderContentScript();
+  if (!state.recording || matches.length === 0) return;
+
+  try {
+    await chrome.scripting.registerContentScripts([{
+      id: RECORDER_SCRIPT_ID,
+      js: ['content.js'],
+      matches,
+      excludeMatches: Array.from(new Set(excludeMatches)),
+      runAt: 'document_start',
+      allFrames: false,
+      persistAcrossSessions: false,
+    }]);
+  } catch {
+    // A grant can disappear between getAll and registration. The permission
+    // listener will derive the next valid registration.
+  }
+  if (!state.recording) await unregisterRecorderContentScript();
+}
+
+async function unregisterRecorderContentScript() {
+  try { await chrome.scripting.unregisterContentScripts({ ids: [RECORDER_SCRIPT_ID] }); } catch {}
 }
 
 async function ensureContentScript(tabId) {
@@ -655,24 +973,94 @@ async function ensureContentScript(tabId) {
   // automatically get the content script. Probe with a quick message, and
   // inject via scripting.executeScript if the content script didn't answer.
   // The content script has its own idempotence guard so re-injection is safe.
+  let tab;
+  try { tab = await chrome.tabs.get(tabId); } catch { return false; }
+  if (cachedDenyMatcher(tab.url)) {
+    noteDeniedPage(tab.url);
+    return false;
+  }
+  if (!hasGrantedAccess(tab.url)) {
+    noteMissingAccess(tab.url);
+    return false;
+  }
+  if (!recordAllowsUrl(tab.url)) {
+    noteNotAllowed(tab.url);
+    return false;
+  }
+
   try {
     const res = await chrome.tabs.sendMessage(tabId, { type: 'recorder:ping' });
-    if (res?.ok) return;
+    if (res?.ok) return true;
   } catch {}
+
+  // Navigation can change the URL while the ping is in flight. Recheck policy
+  // before the one-off injection into the already-open document.
+  try { tab = await chrome.tabs.get(tabId); } catch { return false; }
+  if (cachedDenyMatcher(tab.url)) {
+    noteDeniedPage(tab.url);
+    return false;
+  }
+  if (!hasGrantedAccess(tab.url)) {
+    noteMissingAccess(tab.url);
+    return false;
+  }
+  if (!recordAllowsUrl(tab.url)) {
+    noteNotAllowed(tab.url);
+    return false;
+  }
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['content.js'],
     });
+    return true;
   } catch {
-    // Restricted URL: nothing we can do.
+    return false;
   }
+}
+
+async function syncTrackedTabCapture() {
+  if (!state.recording || state.tabId == null) return;
+  const tabId = state.tabId;
+  const ready = await ensureContentScript(tabId);
+  if (!ready) {
+    // Removing a registration does not unload a script already in the page.
+    try { await chrome.tabs.sendMessage(tabId, { type: 'recorder:end' }); } catch {}
+    return;
+  }
+  if (!state.recording || state.paused || state.tabId !== tabId) return;
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: 'recorder:begin',
+      captureNetwork: state.captureNetwork,
+      captureNetworkBody: state.captureNetworkBody,
+      captureShortcuts: state.captureShortcuts,
+      captureSelection: state.captureSelection,
+      captureGestures: state.captureGestures,
+    });
+  } catch {}
+}
+
+function queueRecorderAccessRefresh() {
+  recorderAccessRefresh = recorderAccessRefresh
+    .catch(() => {})
+    .then(async () => {
+      if (!state.recording) return;
+      await refreshCachedAccess();
+      if (!state.recording) return;
+      await registerRecorderContentScript();
+      if (!state.recording) return;
+      await syncTrackedTabCapture();
+    });
+  return recorderAccessRefresh;
 }
 
 async function stop({ target = 'download', projectName = null } = {}) {
   if (!state.recording) return { bundled: false };
   state.recording = false;
   broadcastRecordingState();
+  await recorderAccessRefresh.catch(() => {});
+  await unregisterRecorderContentScript();
 
   if (periodicShotHandle != null) {
     clearInterval(periodicShotHandle);
@@ -795,6 +1183,8 @@ function summarizeUrls() {
 
 async function assembleBundle(audioBytes, { zip = true } = {}) {
   const endedAt = Date.now();
+  const bundleConfig = await getConfig();
+  const bundleDenylist = await getActiveDenylist();
 
   // events.json: filter activity to the interaction kinds; drop the activity id.
   const events = state.activity
@@ -826,7 +1216,11 @@ async function assembleBundle(audioBytes, { zip = true } = {}) {
     capture_network: state.captureNetwork,
     capture_network_body: state.captureNetwork && state.captureNetworkBody,
     viewport: state.viewport,
-    privacy: PRIVACY_MANIFEST,
+    privacy: {
+      ...PRIVACY_MANIFEST,
+      denylist: bundleDenylist,
+      denylistEnabled: !!bundleConfig.denylistEnabled,
+    },
     waiting_semantics: {
       description: 'Windows where the page was busy (network / spinner / DOM churn) AND the operator was idle. Screenshots drop to 30s cadence, mic is paused, time does not count against the session cap.',
       signals: ['network_active', 'spinner_visible', 'dom_churn', 'manual'],
@@ -987,16 +1381,12 @@ async function downloadBundle({ zipped, manifest }) {
   // which creates a blob URL and hands it back. This sidesteps the ~200MB
   // ceiling of the data: URL path we used to take.
   await ensureOffscreen({ needMic: false });
-  const buf = zipped.buffer.slice(
-    zipped.byteOffset,
-    zipped.byteOffset + zipped.byteLength,
-  );
   let blobId = null;
   try {
     const res = await chrome.runtime.sendMessage({
       target: 'offscreen',
       type: 'bundle:blob-url',
-      bytes: buf,
+      bytes_b64: bytesToBase64(zipped),
       mime: 'application/zip',
     });
     if (!res?.ok) throw new Error(res?.error || 'bundle blob url failed');
@@ -1033,6 +1423,24 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   handleTabUrlChange(tabId, changeInfo).catch(() => {});
+});
+
+function handlePermissionsChanged(perms, added) {
+  if (!state.recording) return;
+  // Update the hot-path gate immediately, then re-read the complete grant
+  // set inside the serialized refresh.
+  applyPermissionDelta(perms, added);
+  queueRecorderAccessRefresh().catch(() => {});
+}
+
+chrome.permissions.onAdded.addListener((perms) => handlePermissionsChanged(perms, true));
+chrome.permissions.onRemoved.addListener((perms) => handlePermissionsChanged(perms, false));
+
+onConfigChanged((config) => {
+  if (!state.recording) return;
+  applyCachedConfig(config);
+  schedulePersist();
+  queueRecorderAccessRefresh().catch(() => {});
 });
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -1093,16 +1501,23 @@ async function rehydrateIfNeeded() {
     state.activity = activity;
     state.consoleEntries = consoleEntries;
     state.screenshots = await loadScreenshots();
-    state.captureShots = meta.captureShots !== false;
+    state.captureShots = !!meta.captureShots;
     state.redactionMode = (meta.redactionMode === 'blur' || meta.redactionMode === 'off') ? meta.redactionMode : 'black';
     state.captureNetwork = !!meta.captureNetwork;
     state.captureNetworkBody = !!meta.captureNetworkBody;
+    state.captureShortcuts = meta.captureShortcuts !== false;
+    state.captureSelection = meta.captureSelection !== false;
+    state.captureGestures = !!meta.captureGestures;
     state.waiting = !!meta.waiting;
     state.waitingSince = meta.waitingSince ?? null;
     state.totalWaitingMs = meta.totalWaitingMs || 0;
     state.manualWaiting = !!meta.manualWaiting;
     state.primaryNav = meta.primaryNav || null;
     state.pagesVisited = new Set(Array.isArray(meta.pagesVisited) ? meta.pagesVisited : []);
+    const persistedAccessNotes = Array.isArray(meta.accessNoteKeys)
+      ? meta.accessNoteKeys
+      : activity.map((entry) => entry?.access_policy).filter(Boolean);
+    state.accessNoteKeys = new Set(persistedAccessNotes);
 
     pushActivity({
       kind: 'note',
@@ -1111,17 +1526,8 @@ async function rehydrateIfNeeded() {
       text: '[auto] recording resumed after service worker restart; mic audio from before this point was lost.',
     });
 
+    await queueRecorderAccessRefresh();
     startPeriodicScreenshots();
-    if (state.tabId != null) {
-      try { await ensureContentScript(state.tabId); } catch {}
-      try {
-        await chrome.tabs.sendMessage(state.tabId, {
-          type: 'recorder:begin',
-          captureNetwork: state.captureNetwork,
-          captureNetworkBody: state.captureNetworkBody,
-        });
-      } catch {}
-    }
     broadcastRecordingState();
   })();
   try { await rehydrateDone; } catch { rehydrateDone = null; }
@@ -1143,6 +1549,8 @@ async function stopAndPackage() {
   if (!state.recording) throw new Error('not recording');
   state.recording = false;
   broadcastRecordingState();
+  await recorderAccessRefresh.catch(() => {});
+  await unregisterRecorderContentScript();
   if (periodicShotHandle != null) { clearInterval(periodicShotHandle); periodicShotHandle = null; }
   const last = state.tabTimeline[state.tabTimeline.length - 1];
   if (last && last.left_at == null) last.left_at = Date.now();
@@ -1157,7 +1565,22 @@ async function stopAndPackage() {
   return Array.from(bundle.zipped);
 }
 
-self.__recaptainTest = { start, stop, pause, resume, getState: () => state, stopAndPackage };
+async function startForTest(options = {}) {
+  // The legacy e2e hook starts with screenshots on. Keep that isolated test
+  // contract while the production path follows the persisted opt-in default.
+  await rehydrateIfNeeded();
+  await setConfig({ captureShots: options.captureShots ?? true, recordMode: 'all' });
+  return start(options);
+}
+
+self.__recaptainTest = {
+  start: startForTest,
+  stop,
+  pause,
+  resume,
+  getState: () => state,
+  stopAndPackage,
+};
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
@@ -1167,16 +1590,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // rehydrate and see stale state.
       await rehydrateIfNeeded();
       if (msg?.type === 'recorder:start') {
+        // Preserve the existing message contract while making storage-backed
+        // config the single screenshot gate.
+        if (typeof msg.captureShots === 'boolean') {
+          await setConfig({ captureShots: msg.captureShots });
+        }
         await start({
           label: msg.label,
           mic: msg.mic,
           micDeviceId: msg.micDeviceId,
           description: msg.description || null,
           saveAs: msg.saveAs,
-          captureShots: msg.captureShots,
           redactionMode: msg.redactionMode,
           captureNetwork: msg.captureNetwork,
           captureNetworkBody: msg.captureNetworkBody,
+          captureShortcuts: msg.captureShortcuts,
+          captureSelection: msg.captureSelection,
+          captureGestures: msg.captureGestures,
         });
         sendResponse({ ok: true });
         return;
@@ -1197,7 +1627,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       if (msg?.type === 'nav:detected') {
-        if (state.recording && msg.nav) state.primaryNav = msg.nav;
+        if (state.recording && senderCanRecord(sender) && msg.nav) state.primaryNav = msg.nav;
         sendResponse({ ok: true });
         return;
       }
@@ -1262,7 +1692,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       if (msg?.type === 'console:entry') {
-        if (state.recording && !state.paused) {
+        if (state.recording && !state.paused && senderCanRecord(sender)) {
           const t = msg.ts - state.startedAt;
           const scrubbed = scrubUrl(msg.url);
           const entry = {
@@ -1288,7 +1718,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       if (msg?.type === 'activity:push') {
-        if (state.recording && !state.paused && Array.isArray(msg.entries)) {
+        if (state.recording && !state.paused && senderCanRecord(sender) && Array.isArray(msg.entries)) {
           let shouldShoot = false;
           // Track the *last* pushed entry of a trigger kind in this batch so
           // we can stamp it with screenshot_id after the capture resolves.
@@ -1359,9 +1789,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       if (msg?.type === 'recorder:content-ready') {
         sendResponse({
-          recording: state.recording,
+          recording: state.recording && !state.paused && senderCanRecord(sender),
           captureNetwork: state.captureNetwork,
           captureNetworkBody: state.captureNetworkBody,
+          captureShortcuts: state.captureShortcuts,
+          captureSelection: state.captureSelection,
+          captureGestures: state.captureGestures,
         });
         return;
       }

@@ -71,10 +71,9 @@ Paste each into the matching field.
 
 | Permission | Justification |
 |---|---|
-| `host_permissions` (`<all_urls>`) | Required to inject the recorder content script into whatever page the user chooses to record, and to capture that tab's screenshot with `chrome.tabs.captureVisibleTab`. Not used for any network request. |
-| `activeTab` | Identifies and operates on the tab the user is actively recording. |
+| `optional_host_permissions` (`<all_urls>`) | Optional, not requested at install. Granted deliberately by the user at runtime, either for the current site only or, if they choose, for all sites, inside a user gesture. Used to inject the recorder content script into the pages the user records and to capture those tabs' screenshots with `chrome.tabs.captureVisibleTab`. Managed and revocable from the extension's Permissions page and the side panel; a built-in denylist excludes recognized auth/payment pages. Not used for any network request. |
 | `tabs` | Follows the recording across tab switches and navigations so the timeline stays continuous. |
-| `scripting` | Coordinates the recorder content script across page loads during a recording. |
+| `scripting` | Registers and injects the recorder content script across page loads during a recording (dynamic content scripts; nothing is injected until the user grants access and starts recording). |
 | `downloads` | Saves the finished recording as a .zip file to the user's Downloads folder. |
 | `offscreen` | Records microphone audio in an offscreen document, because an MV3 service worker cannot call `getUserMedia`. |
 | `storage` | Persists in-progress recording state locally so a recording survives a service-worker restart (crash recovery). |

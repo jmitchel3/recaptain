@@ -83,8 +83,8 @@ Use `npm run watch` for live rebuilds.
 
 ## Permissions
 
-- `<all_urls>`: inject the content script on any page
-- `activeTab`, `tabs`, `scripting`: coordinate the recording across navigations
+- `<all_urls>` (optional host access): requested the first time you click Start, inside that click, so no site access is granted at install. It lets the recorder inject into, and screenshot, whatever page you choose to record. You can revoke it any time from the side panel; without it there is nothing to capture.
+- `tabs`, `scripting`: coordinate and inject the recording across navigations
 - `downloads`: save the bundle
 - `offscreen`: record mic in an offscreen document (MV3 service workers can't)
 

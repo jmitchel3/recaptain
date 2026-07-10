@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Access settings | Recaptain</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div>
+        <p class="eyebrow">Recaptain</p>
+        <h1>Permissions &amp; policy</h1>
+        <p class="intro">Grant what Recaptain needs, choose where it records, and share the policy.</p>
+      </div>
+      <span class="privacy-badge">Local and private</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="page-status" class="page-status" role="status" aria-live="polite" hidden></div>
+
+    <section class="card" aria-labelledby="grants-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Permissions</p>
+          <h2 id="grants-heading">Access grants</h2>
+        </div>
+      </div>
+      <p class="section-copy">
+        Granted here, once, and only what you choose. Nothing is captured unless a
+        recording is running.
+      </p>
+
+      <div class="grant-row">
+        <div class="grant-info">
+          <strong>All-sites access</strong>
+          <small id="allsites-state">Checking...</small>
+          <small class="grant-note">Enables screenshots, following across tabs, and All-sites record mode.</small>
+        </div>
+        <div class="grant-actions">
+          <button id="allsites-grant" type="button" class="primary" disabled>Grant</button>
+          <button id="allsites-revoke" type="button" hidden>Revoke</button>
+        </div>
+      </div>
+
+      <div class="grant-row">
+        <div class="grant-info">
+          <strong>Microphone</strong>
+          <small id="mic-state">Checking...</small>
+          <small class="grant-note">Records your narration. Audio stays in the bundle on your device.</small>
+        </div>
+        <div class="grant-actions">
+          <button id="mic-grant" type="button" class="primary">Grant</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="allowlist-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Allowlist</p>
+          <h2 id="allowlist-heading">Granted site access</h2>
+        </div>
+        <span id="allowlist-summary" class="section-summary">Checking access...</span>
+      </div>
+      <p class="section-copy">
+        These are Chrome's live host grants. Removing one stops Recaptain from accessing matching pages.
+      </p>
+
+      <div class="record-mode-row">
+        <span class="record-mode-label">Record</span>
+        <div class="segmented" role="group" aria-label="Record mode">
+          <button type="button" id="mode-allowed" class="seg">Only allowed sites</button>
+          <button type="button" id="mode-all" class="seg">All sites</button>
+        </div>
+      </div>
+      <p class="section-copy" id="mode-copy"></p>
+
+      <ul id="allowlist-list" class="pattern-list" aria-label="Granted origin patterns"></ul>
+
+      <form id="allowlist-form" class="editor" novalidate>
+        <label for="allowlist-input">Grant a new origin pattern</label>
+        <div class="input-row">
+          <input
+            id="allowlist-input"
+            name="origin"
+            type="text"
+            placeholder="app.example.com/*"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="allowlist-preview allowlist-help allowlist-error"
+            required
+          >
+          <button id="allowlist-add" class="primary" type="submit" disabled>Grant access</button>
+        </div>
+        <p id="allowlist-preview" class="canonical-preview">Canonical form appears here.</p>
+        <p id="allowlist-help" class="field-help">
+          Friendly host patterns are expanded before Chrome sees them. A request can only cover patterns under the optional
+          <code>&lt;all_urls&gt;</code> declaration, and Chrome may reject unsupported schemes or forms.
+        </p>
+        <p id="allowlist-error" class="field-error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="denylist-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Denylist</p>
+          <h2 id="denylist-heading">Protected destinations</h2>
+        </div>
+        <span id="denylist-summary" class="section-summary">Loading patterns...</span>
+      </div>
+      <p class="section-copy">
+        Denied pages are excluded even when a Chrome host grant would otherwise allow capture.
+      </p>
+
+      <label class="toggle-row" for="denylist-enabled">
+        <span>
+          <strong>Enable denylist protection</strong>
+          <small>Keep authentication and payment destinations out of recordings.</small>
+        </span>
+        <input id="denylist-enabled" type="checkbox" disabled>
+      </label>
+
+      <ul id="denylist-list" class="pattern-list" aria-label="Denied origin patterns"></ul>
+
+      <form id="denylist-form" class="editor" novalidate>
+        <label for="denylist-input">Add a denied pattern</label>
+        <div class="input-row">
+          <input
+            id="denylist-input"
+            name="pattern"
+            type="text"
+            placeholder="checkout.example.com/*"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="denylist-preview denylist-help denylist-error"
+            required
+          >
+          <button id="denylist-add" class="primary" type="submit" disabled>Add pattern</button>
+        </div>
+        <p id="denylist-preview" class="canonical-preview">Canonical form appears here.</p>
+        <p id="denylist-help" class="field-help">
+          A missing scheme becomes <code>*://</code>. A missing path becomes <code>/*</code>.
+          Use a leading <code>*.</code> to include subdomains.
+        </p>
+        <p id="denylist-error" class="field-error" role="alert" hidden></p>
+      </form>
+
+      <div class="section-actions">
+        <button id="denylist-reset" type="button" disabled>Reset to defaults</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="capture-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Capture</p>
+          <h2 id="capture-heading">Recording conveniences</h2>
+        </div>
+      </div>
+      <p class="section-copy">
+        Enabling either setting needs all-sites access. Recaptain requests that access from the sidepanel.
+      </p>
+
+      <div class="toggle-list">
+        <label class="toggle-row" for="capture-shots">
+          <span>
+            <strong>Capture screenshots</strong>
+            <small>Include redacted page images throughout the recording.</small>
+          </span>
+          <input id="capture-shots" type="checkbox" disabled>
+        </label>
+        <label class="toggle-row" for="follow-tabs">
+          <span>
+            <strong>Follow across tabs</strong>
+            <small>Continue recording when the active tab changes.</small>
+          </span>
+          <input id="follow-tabs" type="checkbox" disabled>
+        </label>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="policy-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Share</p>
+          <h2 id="policy-heading">Policy export / import</h2>
+        </div>
+      </div>
+      <p class="section-copy">
+        Share these preferences as an org policy. The file holds your record mode,
+        allowed and denied patterns, and capture settings, but never your actual
+        site grants: those always need each person's own consent.
+      </p>
+      <div class="policy-actions">
+        <button id="policy-export" type="button">Export policy</button>
+        <button id="policy-import" type="button">Import policy</button>
+        <input id="policy-file" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="policy-status" class="field-help" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>
