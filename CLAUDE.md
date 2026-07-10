@@ -32,7 +32,16 @@ MV3 Chrome extension with four runtime contexts that talk via `chrome.runtime` m
 
 ### Permission model
 
-`<all_urls>` is declared as `optional_host_permissions`, not a required grant, so nothing broad is requested at install (this avoids the Chrome Web Store broad-host-permission warning / in-depth-review flag). The sidepanel requests it on the first **Start**, inside the click's user gesture (`chrome.permissions.request` must run first in the handler, before any other await, because the gesture does not survive `chrome.runtime.sendMessage` to the SW). Without the grant there is nothing to record: events, the console/network hooks, and `captureVisibleTab` screenshots all need host access. The sidepanel shows a scope line (granted / requested-on-Start) with a **revoke** control (`chrome.permissions.remove`); the SW's `permissions.onRemoved` listener tears down the registered content script. A runtime grant of an optional broad host permission **cannot be granted in automated Chromium** (the native bubble never gets clicked, headless or headful), which is why the e2e promotes it to a required permission (see Testing).
+Full design in **`ACCESS-MODEL.md`**. Principle: nothing at install, every capability opt-in.
+
+`<all_urls>` is declared as `optional_host_permissions`, not a required grant, so nothing broad is requested at install (avoids the Chrome Web Store broad-host review flag). There are two layers:
+
+- **Permission layer (Chrome grants):** the allowlist is the live set of granted host origins (`chrome.permissions.getAll`). The sidepanel grants the current site per-origin (friendly prompt), or all-sites. Screenshots (`captureVisibleTab`) and follow-across-tabs both require all-sites, so their sidepanel toggles (default OFF) are what request `<all_urls>`. All permission requests run first in their click handler (the gesture does not survive `chrome.runtime.sendMessage` to the SW).
+- **Capture policy (Recaptain's choice):** the **denylist** in `shared/access-config.js` (built-in auth/payment defaults, ON by default, user-editable in the Options page) is subtracted even where a grant exists. The SW registers the dynamic content script with the granted origins as `matches` and the canonicalized denylist as `excludeMatches`, re-deriving on `permissions.onAdded/onRemoved` and `onConfigChanged`; screenshots and per-tab injection also re-check the denylist at runtime and drop a `note` gap.
+
+Two pure/shared foundations back this: **`shared/match-patterns.js`** (friendly short-form parser -> canonical Chrome match pattern + a compiled URL matcher; unit-tested) and **`shared/access-config.js`** (chrome.storage.local config: capture toggles + denylist; `getConfig`/`setConfig`/`getActiveDenylist`/`onConfigChanged`). The **Options page** (`src/options/`, ESM, `options_ui` open-in-tab) hosts the allowlist + denylist pattern editors.
+
+A runtime grant of an optional host permission **cannot be granted in automated Chromium** (the native bubble never gets clicked, headless or headful), which is why the e2e promotes `<all_urls>` to a required permission (see Testing) and `__recaptainTest.start` forces screenshots on via `startForTest`.
 
 **Build split** (`build.mjs`): content script ships as IIFE because MV3 content scripts are classic scripts; the SW, offscreen, permission, and sidepanel ship as ESM (SW is `type:module` in the manifest; the others load via `<script type="module">`). esbuild bundles with `target: chrome120`, inline sourcemaps.
 

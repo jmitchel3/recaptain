@@ -139,16 +139,15 @@ the SW reacts via `chrome.permissions.onAdded/onRemoved`. The allowlist is
 
 ## Build phases
 
-1. **Permission core** (also resolves the Chrome Web Store broad-host review
-   flag on its own): `optional_host_permissions: ["<all_urls>"]`, per-site +
-   all-sites grants, priming + revoke, screenshots gated on all-sites, dynamic
-   per-origin content-script registration. *(Optional grant + priming + revoke
-   is already implemented on the `optional-host-perms` branch.)*
-2. **Denylist**: `shared/match-patterns.js` + built-in defaults + `excludeMatches`
-   + runtime gating + gap notes + `PRIVACY_MANIFEST` entry.
-3. **Allowlist UI + Options page**: per-site allowlist management, pattern
-   editors.
-4. **Follow-across-tabs toggle**.
+1. **Permission core** - BUILT. `optional_host_permissions: ["<all_urls>"]`,
+   per-site + all-sites grants, priming + revoke, screenshots gated on
+   all-sites, dynamic per-origin content-script registration.
+2. **Denylist** - BUILT. `shared/match-patterns.js` + built-in defaults +
+   `excludeMatches` + runtime gating + gap notes + bundle-manifest disclosure.
+3. **Allowlist UI + Options page** - BUILT. Sidepanel per-site allowlist +
+   `src/options/` page with allowlist + denylist pattern editors.
+4. **Follow-across-tabs toggle** - BUILT. Off by default; enabling requests
+   all-sites; `handleTabSwitch` gates on it.
 5. **Deferred**: activeTab variant, video companion.
 
 ## Decisions (locked)
